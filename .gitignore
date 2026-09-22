@@ -1,8 +1,19 @@
+# MacOS system files
 .DS_Store
-/.build
+
+# Swift Package Manager build artifacts
+.build/
 /Packages
-xcuserdata/
 DerivedData/
+
+# Xcode user-specific settings (generated when opening the package in Xcode)
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.swiftpm/xcode/userdata/
+xcuserdata/
+
 .netrc
+
+# Optional: Un-comment the line below if you want to lock your dependency versions.
+# Otherwise, leave it ignored so team members can resolve dependencies independently.
+# Package.resolved
