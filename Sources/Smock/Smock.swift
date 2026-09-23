@@ -8,10 +8,7 @@ import Synchronization
 import Mutex
 #endif
 
-#if canImport(ObjectiveC)
-import ObjectiveC
-import Foundation
-#endif
+import IssueReporting
 
 /// Marks this type as `Mockable`, generating associated types including a `Mock`, `StubBuilder`, and `Verifier`, as well as typed functions
 /// for generating instances.
@@ -45,18 +42,6 @@ open class Smock<T>: @unchecked Sendable {
     /// - parameter relaxed: If `true`, the mock will assume reasonable return values (e.g. `Void` or `nil`)  when members are not stubbed.
     public required init(relaxed: Bool = false) {
         self.relaxed = relaxed
-
-        // Auto-init support for registering test environments
-        #if canImport(ObjectiveC)
-        // Dynamically query the Objective-C runtime for our auto-initializer class
-        if let autoInitClass = NSClassFromString("SmockTestSupportAutoInitializer") as? NSObject.Type {
-            // Instantiate the class to trigger its 'init', registering available test environments
-            _ = autoInitClass.init()
-            print("🚀 [Smock] Successfully auto-configured test environment recorders.")
-        } else {
-            print("⚠️ [Smock Warning]: Unable to auto-configure test environment recorders. Ensure that the 'SwiftTestSupport' framework is added to your test target, or try calling 'SmockTestSupport.initialize()' manually.")
-        }
-        #endif
     }
 
     /// Tracks a method invocation by its signature and associated parameters.
@@ -224,7 +209,7 @@ public func verifyNoInteractions<T>(_ mock: Smock<T>, filePath: StaticString = #
         let callMap = allCalls.flatMap { result in
             result.calls.map { result.description(for: $0) }
         }.joined(separator: "\n\t")
-        TestingBridge.record("Expected no calls; found...\n\t\(callMap)", file: filePath, line: line)
+        reportIssue("Expected no calls; found...\n\t\(callMap)", filePath: filePath, line: line)
     }
 }
 
@@ -235,7 +220,7 @@ public func verifyNoMoreInteractions<T>(_ mock: Smock<T>, filePath: StaticString
         let callMap = unverified.flatMap { result in
             result.calls.map { result.description(for: $0) }
         }.joined(separator: "\n\t")
-        TestingBridge.record("Unverified calls remaining...\n\t\(callMap)", file: filePath, line: line)
+        reportIssue("Unverified calls remaining...\n\t\(callMap)", filePath: filePath, line: line)
     }
 }
 

@@ -13,17 +13,11 @@ let package = Package(
             name: "Smock",
             targets: ["Smock"]
         ),
-        .library(
-            name: "SmockTestSupport",
-            targets: ["SmockTestSupport"]
-        ),
-//        .executable(
-//            name: "SmockClient",
-//            targets: ["SmockClient"]
-//        ),
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0-latest"),
+        // Handles Swift Testing and XCTest issue reporting at runtime
+        .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.0.0"),
         // Backport of Synchronization.Mutex from Swift 6+
         .package(url: "https://github.com/swhitty/swift-mutex.git", .upToNextMajor(from: "0.0.5"))
     ],
@@ -44,11 +38,10 @@ let package = Package(
             name: "Smock",
             dependencies: [
                 "SmockMacros",
+                .product(name: "IssueReporting", package: "swift-issue-reporting")
                 .productItem(name: "Mutex", package: "swift-mutex", moduleAliases: nil, condition: nil)
             ]
         ),
-
-        .target(name: "SmockTestSupport", dependencies: ["Smock"]),
 
         // A client of the library, which is able to use the macro in its own code.
         .executableTarget(name: "SmockClient", dependencies: ["Smock"]),
@@ -62,6 +55,7 @@ let package = Package(
             ]
         ),
 
+        // A test target used to develop the Smock framework
         .testTarget(
             name: "SmockTests",
             dependencies: ["Smock", "SmockTestSupport"]

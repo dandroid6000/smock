@@ -6,6 +6,8 @@
 //
 
 #if DEBUG
+import IssueReporting
+
 /// Enumeration of ways to verify an invocation.
 public enum Verification: CustomStringConvertible {
     /// The member was invoked *exactly* n times.
@@ -58,7 +60,11 @@ public class Verifier<T> {
         let calls = mock.verifyCalls(for: signature, matching: params ?? self.params)
 
         if !verification.verify(count: calls.count) {
-            TestingBridge.record("Verification failed: \(signature); expected: \(verification), actual: \(calls.count)", file: filePath, line: line)
+            reportIssue(
+                "Verification failed: \(signature); expected: \(verification), actual: \(calls.count)",
+                filePath: filePath,
+                line: line
+            )
         }
 
         return VerificationResult(signature: signature, calls: calls, filePath: filePath, line: line)
@@ -281,7 +287,7 @@ public func inOrder(@InOrderBuilder _ builder: () -> [VerificationResult]) {
 //                message += "\n\t\t[\(idx + 1)] \(call)"
 //            }
         }
-        TestingBridge.record(message, file: failedVerification.filePath, line: failedVerification.line)
+        reportIssue(message, filePath: failedVerification.filePath, line: failedVerification.line)
     }
 }
 #endif
