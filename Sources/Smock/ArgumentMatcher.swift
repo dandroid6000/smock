@@ -5,6 +5,7 @@
 //  Created by Dan Kane on 6/16/26.
 //
 
+#if DEBUG
 /// A typed matcher that can be used to stub or verify mock behavior.
 ///
 /// The matcher can be initialized by most literal types, or using the `.any` or `.equalTo(_:)` cases.
@@ -36,6 +37,15 @@ public enum ArgumentMatcher<T: Sendable>: AnyArgumentMatcher {
             let valueRef = value as AnyObject
             let otherRef = other as AnyObject
             return valueRef === otherRef
+        }
+    }
+}
+
+extension ArgumentMatcher: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .any: ".any"
+        case .equalTo(let value): "\(value)"
         }
     }
 }
@@ -115,3 +125,4 @@ extension AnyArgumentMatcher {
         return lhs == rhsTyped
     }
 }
+#endif

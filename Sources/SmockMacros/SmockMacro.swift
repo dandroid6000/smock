@@ -71,7 +71,7 @@ public struct MockableMacro: PeerMacro {
 
         let protocolName = protocolDecl.name.text
 
-        // Enumerate the methods and properties
+        // Enumerate the methods and properties to generate mocks, stubbers, and verifiers
         var mocks: [String] = []
         var stubbers: [String] = []
         var verifiers: [String] = []

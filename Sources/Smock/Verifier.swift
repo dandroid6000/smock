@@ -57,17 +57,20 @@ public class Verifier<T> {
         filePath: StaticString,
         line: UInt
     ) -> VerificationResult {
-        let calls = mock.verifyCalls(for: signature, matching: params ?? self.params)
+        let params = params ?? self.params
+        let calls = mock.verifyCalls(for: signature, matching: params)
 
         if !verification.verify(count: calls.count) {
             reportIssue(
-                "Verification failed: \(signature); expected: \(verification), actual: \(calls.count)",
+                "Verification failed: \(Call.description(for: signature, params: params)); expected: \(verification), actual: \(calls.count)",
                 filePath: filePath,
                 line: line
             )
         }
 
-        return VerificationResult(signature: signature, calls: calls, filePath: filePath, line: line)
+        // Retreive the relevant call for the result
+        let verified = calls.last { $0.isVerified }
+        return VerificationResult(signature: signature, call: verified, filePath: filePath, line: line)
     }
 }
 
@@ -129,56 +132,37 @@ public class WritablePropertyVerifier<T, R: Sendable>: PropertyVerifier<T, R> {
 ///
 /// - SeeAlso: ``inOrder(_:)``
 /// - SeeAlso: ``verifyNoMoreInteractions(_:file:line:)``
-public class VerificationResult {
+public class VerificationResult: CustomStringConvertible {
     let signature: String
-    let calls: [Call]
+    let call: Call? // nil means no calls (e.g. .never)
     let filePath: StaticString
     let line: UInt
 
-    init(signature: String, calls: [Call], filePath: StaticString, line: UInt) {
+    public var description: String {
+        Call.description(for: signature, params: call?.params)
+    }
+
+    init(signature: String, call: Call?, filePath: StaticString = "", line: UInt = 0) {
         self.signature = signature
-        self.calls = calls
+        self.call = call
         self.filePath = filePath
         self.line = line
     }
+}
 
-    func description(for call: Call?) -> String {
-        guard signature.contains("(") else {
-            // Property
-            let assignment = if let call, !call.params.isEmpty {
-                " = \(call.params[0])"
-            } else {
-                ""
-            }
-            return ".\(signature)\(assignment)"
+extension [VerificationResult] {
+    func sortedCallDescriptions() -> String {
+        // De-dup by timestamp
+        var timestamps = Set<ContinuousClock.Instant>()
+        return self.compactMap { result -> (call: Call, signature: String)? in
+            guard let call = result.call else { return nil }
+            return (call: call, signature: result.signature)
         }
-
-        // Method
-        let split = signature.split(separator: "(", maxSplits: 1)
-        guard
-            let call,
-            let name = split.first,
-            let paramString = split.last?.split(separator: ")", maxSplits: 1).first,
-            !paramString.isEmpty
-        else {
-            return ".\(signature)"
-        }
-
-        let names = paramString.split(separator: ",").map { part in
-            // e.g. "_ a: Int"
-            String(part)
-                .trimmingCharacters(in: .whitespaces)
-                .split(separator: ":").first?
-                .split(separator: " ").first ?? ""
-        }
-        let params = zip(names, call.params).map { name, param in
-            if name == "_" {
-                "\(param)"
-            } else {
-                "\(name): \(param)"
-            }
-        }.joined(separator: ", ")
-        return ".\(name)(\(params))"
+        .sorted(by: { $0.call.timestamp <= $1.call.timestamp })
+        .lazy // delay string generation until joined
+        .filter { timestamps.insert($0.call.timestamp).inserted } // de-dup
+        .map { $0.call.description(for: $0.signature) }
+        .joined(separator: "\n\t")
     }
 }
 
@@ -213,81 +197,44 @@ public struct InOrderBuilder {
 /// inOrder {
 ///     verify(mock).getAnotherValue.wasCalled()
 ///     verify(mock).didGetValue.wasSet() // PASS - was called after .getAnotherValue()
-///     verify(mock).getValue().wasCalled() // FAIL - was called first
+///     verify(mock).getValue().wasCalled() // FAIL - out of order
 /// }
 /// ```
 public func inOrder(@InOrderBuilder _ builder: () -> [VerificationResult]) {
     let verifications = builder()
 
-    // 2. Perform greedy chronological path matching
-    var lastCall: Call? = nil
-    var failedIndex: Int? = nil
-
+    // Each VerificationResult will contain 0 or 1 calls at this point
+    var inOrder: [VerificationResult] = []
     for (index, verification) in verifications.enumerated() {
-        if verification.calls.isEmpty {
-            // e.g. .never
+        guard
+            let call = verification.call,
+            let lastVerification = inOrder.last(where: { $0.call != nil }),
+            let lastCall = lastVerification.call,
+            lastCall.timestamp >= call.timestamp // Fail
+        else {
+            // Pass (includes nil/.never)
+            inOrder.append(verification)
             continue
         }
 
-        // TODO: Make sure a, b, a situations are handled
-        // Sort matching calls to ensure we evaluate chronologically
-        let chronologicallySortedCalls = verification.calls
-            .sorted { $0.timestamp < $1.timestamp }
+        // Log the failure
+        var message = "In-Order Verification Failed at step \(index + 1) of \(verifications.count)"
+        message += "\n\tExpected: \(verification)"
+        message += "\n\tto occur AFTER: \(lastVerification)"
+        message += "\n\tReason: All matching invocations occurred out of order (prior to preceding steps)."
 
-        let nextCall: Call?
-        if let lastTimestamp = lastCall?.timestamp {
-            // Find the earliest call that occurred strictly after our previous verified step
-            nextCall = chronologicallySortedCalls.first { $0.timestamp > lastTimestamp }
-        } else {
-            // First step simply gets the earliest call in its set
-            nextCall = chronologicallySortedCalls.first
+        var callMap = inOrder.map {
+            if $0.call != nil {
+                "✅ \($0)"
+            } else {
+                "❎ \($0)"
+            }
         }
+        callMap.append("❌ \(verification)")
+        message += "\n\tChronological invocations for this step:\n\t\(callMap.joined(separator: "\n\t"))"
 
-        if let nextCall {
-            lastCall = nextCall
-        } else {
-            failedIndex = index
-            break
-        }
-    }
-
-    // 3. Generate detailed, actionable diagnostics on failure
-    if let failedIndex {
-        let failedVerification = verifications[failedIndex]
-        var message = "In-Order Verification Failed at call \(failedIndex + 1) of \(verifications.count)"
-        message += "\n\tExpected: .\(failedVerification.signature)"
-
-        if failedIndex > 0 {
-            let prevVerification = verifications[failedIndex - 1]
-            message += "\n\tto occur AFTER: \(prevVerification.description(for: lastCall))"
-        }
-
-        if failedVerification.calls.isEmpty {
-            message += "\n\tReason: The method or property was never invoked."
-        } else {
-            message += "\n\tReason: All matching invocations occurred out of order (prior to preceding steps)."
-//            message += "\n\tChronological invocations for this step:"
-//            for (idx, call) in failedVerification.calls.sorted(by: { $0.timestamp < $1.timestamp }).enumerated() {
-//                message += "\n  [\(idx + 1)] \(failedVerification.description(for: call))"
-//            }
-            
-//            let callDescriptions = verifications
-//                // 1. Pair each call with its parent Verification to retain the description context
-//                .flatMap { verification in
-//                    verification.calls.map { (verification: verification, call: $0) }
-//                }
-//                // 2. Sort all calls chronologically across all verifications
-//                .sorted { $0.call.timestamp < $1.call.timestamp }
-//                // 3. Map to the specific description using the parent verification
-//                .map { pair in
-//                    pair.verification.description(for: pair.call)
-//                }
-//            message += "\n\tChronological invocations"
-//            for (idx, call) in callDescriptions.enumerated() {
-//                message += "\n\t\t[\(idx + 1)] \(call)"
-//            }
-        }
-        reportIssue(message, filePath: failedVerification.filePath, line: failedVerification.line)
+        reportIssue(message, filePath: verification.filePath, line: verification.line)
+        break
     }
 }
 #endif

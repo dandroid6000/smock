@@ -8,7 +8,6 @@ struct Baz: Equatable {
     let a: Int
 }
 
-// TODO: Include DI and supply concrete class, e.g. @Injectable(using: FooImpl.self)
 @Mockable
 protocol Foo {
 //    var readOnlyProperty: Int { get }
@@ -34,7 +33,7 @@ protocol Bar {
     var one: Int { get async throws }
     var two: Int { get set }
     func three()
-    func four(_ a: Int) async throws -> Int
+    func four(a: Int) async throws -> Int
     func five(_ a: Int, _ b: String)
 }
 
@@ -47,7 +46,7 @@ when(mock).two.then {
     return 2
 }
 //when(mock).three().thenReturn()
-when(mock).four(.any()).then {
+when(mock).four(a: 3).then {
     print("INVOKED `.four` with \($0.getInt(at: 0))")
     throw AnError.error
 }
@@ -67,18 +66,24 @@ mock.two = 1
 //_ = try await mock.four(2)
 _ = try await mock.one
 do {
-    _ = try await mock.four(3)
+    _ = try await mock.four(a: 3)
 } catch {
     print("Caught error for .four(3): \(error)")
 }
 mock.five(5, "a")
 
+verifyNoInteractions(mock)
+
+verify(mock).four(a: .any()).wasCalled(.never)
+
 inOrder {
     verify(mock).one.wasRead()
 //    verify(mock).two.wasRead()
-//    verify(mock).two.wasSet(to: 1)
-    verify(mock).four(3).wasCalled(.exactly(1))
-//    verify(mock).one.wasRead()
+    verify(mock).two.wasSet(to: 1)
+    verify(mock).three().wasCalled(.never)
+    verify(mock).one.wasRead()
+//    verify(mock).four(3).wasCalled(.exactly(1))
+//    verify(mock).one.wasRead() // out of order
 }
 
 verifyNoMoreInteractions(mock)

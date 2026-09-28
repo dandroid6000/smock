@@ -10,15 +10,6 @@ import Mutex
 
 import IssueReporting
 
-/// Marks this type as `Mockable`, generating associated types including a `Mock`, `StubBuilder`, and `Verifier`, as well as typed functions
-/// for generating instances.
-///
-/// Types are conditionally compiled for DEBUG builds only, as they are intended to only be used in tests.
-///
-/// - Note: This macro can only be attached to a `protocol` definition.
-@attached(peer, names: suffixed(Mock), suffixed(StubBuilder), suffixed(Verifier), named(when), named(verify))
-public macro Mockable() = #externalMacro(module: "SmockMacros", type: "MockableMacro")
-
 #if DEBUG
 enum SmockError: Error {
     case strict
@@ -49,7 +40,7 @@ open class Smock<T>: @unchecked Sendable {
     public final func trackMethod<each P: Sendable>(_ signature: String, params: repeat each P) {
         var paramArray: [any Sendable] = []
         repeat paramArray.append(each params)
-        print("Tracked method: \(signature) with params: \(paramArray)")
+        print("Tracked method: \(Call.description(for: signature, params: paramArray))")
         let call = Call(params: paramArray)
         getOrCreateMetadata(for: signature)
             .addCall(call)
@@ -58,7 +49,7 @@ open class Smock<T>: @unchecked Sendable {
     /// Tracks a property getter by its signature.
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public final func trackGetter(_ signature: String) {
-        print("Tracked getter: \(signature)")
+        print("Tracked getter: \(Call.description(for: signature))")
         let call = Call(params: []) // Empty params implies a `get` operation
         getOrCreateMetadata(for: signature)
             .addCall(call)
@@ -67,7 +58,7 @@ open class Smock<T>: @unchecked Sendable {
     /// Tracks a property setter by its signature and assigned value.
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public final func trackSetter<V: Sendable>(_ signature: String, value: V) {
-        print("Tracked setter: \(signature), value: \(value)")
+        print("Tracked setter: \(Call.description(for: signature, params: [value]))")
         let call = Call(params: [value])
         getOrCreateMetadata(for: signature)
             .addCall(call)
@@ -77,19 +68,19 @@ open class Smock<T>: @unchecked Sendable {
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public final func getValue<each P, R>(for signature: String, params: repeat each P) throws -> R {
         let paramArray = toParamArray(repeat each params)
-        print("Getting value for: \(signature) with params: \(paramArray)")
+        print("Getting value for: \(Call.description(for: signature, params: paramArray))")
 
         let stub: Stub? = metadata.withLock { allMetadata in
             allMetadata[signature]?.getNextStub(matching: paramArray)
         }
 
         guard let stub else {
-            return relaxedDefault("No matching stubs for `\(signature)` with params: \(paramArray)")
+            return relaxedDefault("No matching stubs for \(Call.description(for: signature, params: paramArray))")
         }
 
         let args = Args(paramArray)
         guard let value = try stub.producer(args) as? R else {
-            preconditionFailure("Incorrect type stubbed for `\(signature)` with params: \(paramArray)")
+            preconditionFailure("Incorrect type stubbed for \(Call.description(for: signature, params: paramArray))")
         }
 
         return value
@@ -99,19 +90,19 @@ open class Smock<T>: @unchecked Sendable {
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public final func getValue<each P, R>(for signature: String, params: repeat each P) async throws -> R {
         let paramArray = toParamArray(repeat each params)
-        print("Getting value for: \(signature) with params: \(paramArray)")
+        print("Getting value for: \(Call.description(for: signature, params: paramArray))")
 
         let stub: AsyncStub? = metadata.withLock { allMetadata in
             allMetadata[signature]?.getNextStub(matching: paramArray)
         }
 
         guard let stub else {
-            return relaxedDefault("No matching stubs for `\(signature)` with params: \(paramArray)")
+            return relaxedDefault("No matching stubs for \(Call.description(for: signature, params: paramArray))")
         }
 
         let args = Args(paramArray)
         guard let value = try await stub.producer(args) as? R else {
-            preconditionFailure("Incorrect type stubbed for `\(signature)` with params: \(paramArray)")
+            preconditionFailure("Incorrect type stubbed for \(Call.description(for: signature, params: paramArray))")
         }
 
         return value
@@ -140,24 +131,18 @@ open class Smock<T>: @unchecked Sendable {
     // Used by Verifier classes
     func verifyCalls(for signature: String, matching params: [AnyArgumentMatcher]) -> [Call] {
         metadata.withLock { allMetadata in
-            guard let metadata = allMetadata[signature] else {
-                print("No calls for `\(signature)`")
-                return []
-            }
-
-            print("Verifying: \(signature) with params: \(params)")
-
-            return metadata.verifyCalls(matching: params)
+            print("Verifying \(Call.description(for: signature, params: params))")
+            return allMetadata[signature]?.verifyCalls(matching: params) ?? []
         }
     }
 
     // Used by verifyNoInteractions
     fileprivate func getAllCalls() -> [VerificationResult] {
         metadata.withLock { allMetadata in
-            allMetadata.compactMap { (signature, metadata) in
-                let calls = metadata.allCalls()
-                guard !calls.isEmpty else { return nil }
-                return VerificationResult(signature: signature, calls: calls, filePath: "", line: 0) // file/line are ignored
+            allMetadata.flatMap { (signature, metadata) -> [VerificationResult] in
+                metadata.allCalls().map {
+                    VerificationResult(signature: signature, call: $0)
+                }
             }
         }
     }
@@ -165,12 +150,9 @@ open class Smock<T>: @unchecked Sendable {
     // Used by verifyNoMoreInteractions
     fileprivate func getUnverifiedCalls() -> [VerificationResult] {
         metadata.withLock { allMetadata in
-            allMetadata.reduce(into: []) { unverified, metadata in
-                let signature = metadata.key
-                let calls = metadata.value.unverifiedCalls()
-                if !calls.isEmpty {
-                    let result = VerificationResult(signature: signature, calls: calls, filePath: "", line: 0) // file/line are ignored
-                    unverified.append(result)
+            allMetadata.flatMap { (signature, metadata) -> [VerificationResult] in
+                metadata.unverifiedCalls().map {
+                    VerificationResult(signature: signature, call: $0)
                 }
             }
         }
@@ -205,23 +187,19 @@ open class Smock<T>: @unchecked Sendable {
 /// Asserts that no invocations occurred on the given mock.
 public func verifyNoInteractions<T>(_ mock: Smock<T>, filePath: StaticString = #filePath, line: UInt = #line) {
     let allCalls = mock.getAllCalls()
-    if !allCalls.isEmpty {
-        let callMap = allCalls.flatMap { result in
-            result.calls.map { result.description(for: $0) }
-        }.joined(separator: "\n\t")
-        reportIssue("Expected no calls; found...\n\t\(callMap)", filePath: filePath, line: line)
-    }
+    guard !allCalls.isEmpty else { return }
+
+    let callMap = allCalls.sortedCallDescriptions()
+    reportIssue("Expected no calls; found...\n\t\(callMap)", filePath: filePath, line: line)
 }
 
 /// Asserts that all invocations on the given mock have been verified.
 public func verifyNoMoreInteractions<T>(_ mock: Smock<T>, filePath: StaticString = #filePath, line: UInt = #line) {
     let unverified = mock.getUnverifiedCalls()
-    if !unverified.isEmpty {
-        let callMap = unverified.flatMap { result in
-            result.calls.map { result.description(for: $0) }
-        }.joined(separator: "\n\t")
-        reportIssue("Unverified calls remaining...\n\t\(callMap)", filePath: filePath, line: line)
-    }
+    guard !unverified.isEmpty else { return }
+
+    let callMap = unverified.sortedCallDescriptions()
+    reportIssue("Unverified calls remaining...\n\t\(callMap)", filePath: filePath, line: line)
 }
 
 // MARK: - SmockMetadata
@@ -275,20 +253,19 @@ final class SmockMetadata: Sendable {
             return calls.indices.reduce(into: []) { matches, index in
                 var call = calls[index]
 
-                // Methods will always have the same count
-                let isMatch = if call.params.count == params.count {
-                    // All parameters must match
-                    zip(params, call.params).allSatisfy { (matcher, callParam) in
+                // Property getters (0 params) and setters (1 param) should not match each other
+                // All other cases should have equal param counts
+                guard call.params.count == params.count else { return }
+
+                // All parameters must match
+                let isMatch = zip(params, call.params)
+                    .allSatisfy { (matcher, callParam) in
                         matcher.matches(callParam)
                     }
-                } else {
-                    // Property getters (0 params) and setters (1 param) should not match each other
-                    false
-                }
 
                 if isMatch {
                     // Track verification
-                    if !call.isVerified, !didVerify {
+                    if !didVerify, !call.isVerified {
                         call.isVerified = true
                         calls[index] = call // replace with mutated call
                         didVerify = true
@@ -314,51 +291,5 @@ private func toParamArray<each P>(_ params: repeat each P) -> [Any] {
     var paramArray: [Any] = []
     repeat paramArray.append(each params)
     return paramArray
-}
-
-/// Represents a member invocation, tracking when it occurred, what parameters were supplied (if any), and whether or not it has been verified.
-struct Call: Sendable {
-    let timestamp: ContinuousClock.Instant = ContinuousClock.now
-    let params: [any Sendable]
-    var isVerified: Bool = false
-}
-
-/// Represents a stub with a list of matchers to compare against invocation parameters, and a return producer.
-struct Stub: AnyStub {
-    let matchers: [AnyArgumentMatcher]
-    let producer: @Sendable (Args) throws -> (any Sendable)
-}
-
-/// Represents a stub with a list of matchers to compare against invocation parameters, and an async return producer.
-struct AsyncStub: AnyStub {
-    let matchers: [AnyArgumentMatcher]
-    let producer: @Sendable (Args) async throws -> (any Sendable)
-}
-
-/// Represents a stub with a list of matchers to compare against invocation parameters.
-protocol AnyStub: Sendable {
-    var matchers: [AnyArgumentMatcher] { get }
-}
-
-/// A container which wraps a set of arguments and provides strongly-typed conveniences for access.
-public struct Args {
-    public var count: Int { args.count }
-    public var isEmpty: Bool { args.isEmpty }
-
-    let args: [Any]
-
-    init(_ args: [Any]) {
-        self.args = args
-    }
-
-    public func getBool(at index: Int) -> Bool { self[index] }
-    public func getDouble(at index: Int) -> Double { self[index] }
-    public func getFloat(at index: Int) -> Float { self[index] }
-    public func getInt(at index: Int) -> Int { self[index] }
-    public func getString(at index: Int) -> String { self[index] }
-
-    public subscript<T>(index: Int) -> T {
-        args[index] as! T
-    }
 }
 #endif

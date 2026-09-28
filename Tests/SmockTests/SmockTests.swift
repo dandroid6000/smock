@@ -346,10 +346,8 @@ struct SmockTests {
 
         // Assert - verification 'verifies' in order
         let result1 = verify(mock).twoArgMethod(.any(), .any()).wasCalled()
-        #expect(result1.calls.count == 3)
-        #expect(result1.calls[0].isVerified)
-        #expect(!result1.calls[1].isVerified)
-        #expect(!result1.calls[2].isVerified)
+        let call1 = try #require(result1.call)
+        #expect(call1.isVerified)
 
         withKnownIssue {
             verifyNoMoreInteractions(mock)
@@ -357,9 +355,8 @@ struct SmockTests {
 
         // Verify again, 'verifies' next one
         let result2 = verify(mock).twoArgMethod(.any(), 1).wasCalled()
-        #expect(result2.calls.count == 2)
-        #expect(result2.calls[0].isVerified)
-        #expect(result2.calls[1].isVerified)
+        let call2 = try #require(result2.call)
+        #expect(call2.isVerified)
 
         withKnownIssue {
             verifyNoMoreInteractions(mock)
@@ -367,8 +364,13 @@ struct SmockTests {
 
         // Verify again, 'verifies' last one
         let result3 = verify(mock).twoArgMethod("three", 4).wasCalled()
-        #expect(result3.calls.count == 1)
-        #expect(result3.calls[0].isVerified)
+        let call3 = try #require(result3.call)
+        #expect(call3.isVerified)
+
+        // Additional verifications continue returnin the last verified call
+        let result4 = verify(mock).twoArgMethod(.any(), .any()).wasCalled()
+        let call4 = try #require(result4.call)
+        #expect(call3.timestamp == call4.timestamp)
 
         // No more
         verifyNoMoreInteractions(mock)
@@ -428,6 +430,36 @@ struct SmockTests {
             }
         }
     }
+
+    @Test
+    func `inOrder verification should support multiple mocks`() async throws {
+        // Arrange
+        let anotherMock = AnotherServiceMock()
+        when(anotherMock).anotherProperty.thenReturn(1)
+        when(mock).readOnlyProperty.thenReturn("value")
+
+        // Act
+        _ = mock.readOnlyProperty
+        _ = anotherMock.anotherProperty
+
+        // Assert
+        inOrder {
+            verify(mock).readOnlyProperty.wasRead()
+            verify(anotherMock).anotherProperty.wasRead()
+        }
+
+        withKnownIssue {
+            inOrder {
+                verify(anotherMock).anotherProperty.wasRead()
+                verify(mock).readOnlyProperty.wasRead()
+            }
+        }
+    }
+}
+
+@Mockable
+protocol AnotherService {
+    var anotherProperty: Int { get }
 }
 
 enum TestError: Error {
