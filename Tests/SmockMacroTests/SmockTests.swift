@@ -17,6 +17,9 @@ struct SmockTests {
             """
             @Mockable
             protocol Service: AnyObject {
+                static var staticProperty: Int { get }
+                static func staticVoidMethod()
+            
                 var readWriteProperty: String { get set }
                 var readOnlyProperty: String { get }
                 var asyncProperty: Int { get async }
@@ -39,6 +42,9 @@ struct SmockTests {
             """,
             expandedSource: """
             protocol Service: AnyObject {
+                static var staticProperty: Int { get }
+                static func staticVoidMethod()
+            
                 var readWriteProperty: String { get set }
                 var readOnlyProperty: String { get }
                 var asyncProperty: Int { get async }
@@ -64,15 +70,27 @@ struct SmockTests {
                 required public init(relaxed: Bool = false) {
                     super.init(relaxed: relaxed)
                 }
+            
+                nonisolated static var staticProperty: Int {
+                get {
+                    trackGetter("staticProperty")
+                    return try! getValue(for: "staticProperty")
+                }
+                }
+            
+                nonisolated static func staticVoidMethod() {
+                    trackMethod("staticVoidMethod()")
+                    return try! getValue(for: "staticVoidMethod()")
+                }
 
                 nonisolated var readWriteProperty: String {
-                get {
-                    trackGetter("readWriteProperty")
-                    return try! getValue(for: "readWriteProperty")
-                }
-                set {
-                    trackSetter("readWriteProperty", value: newValue)
-                }
+                    get {
+                        trackGetter("readWriteProperty")
+                        return try! getValue(for: "readWriteProperty")
+                    }
+                    set {
+                        trackSetter("readWriteProperty", value: newValue)
+                    }
                 }
 
                 nonisolated var readOnlyProperty: String {
@@ -142,14 +160,26 @@ struct SmockTests {
 
             #if DEBUG
             nonisolated struct ServiceStubBuilder {
+                static var mock: Smock<Service> {
+                    SmockStatic[Service.self]
+                }
+
                 let mock: Smock<Service>
 
                 init(mock: Smock<Service>) {
                     self.mock = mock
                 }
+            
+                static var staticProperty: ReturnBuilder<Service, Int> {
+                ReturnBuilder<Service, Int>(mock: mock, signature: "staticProperty")
+                }
+            
+                static func staticVoidMethod() -> ReturnBuilder<Service, Void> {
+                    ReturnBuilder<Service, Void>(mock: mock, signature: "staticVoidMethod()")
+                }
 
                 var readWriteProperty: ReturnBuilder<Service, String> {
-                ReturnBuilder<Service, String>(mock: mock, signature: "readWriteProperty")
+                    ReturnBuilder<Service, String>(mock: mock, signature: "readWriteProperty")
                 }
 
                 var readOnlyProperty: ReturnBuilder<Service, String> {
@@ -200,14 +230,26 @@ struct SmockTests {
 
             #if DEBUG
             nonisolated struct ServiceVerifier {
+                static var mock: Smock<Service> {
+                    SmockStatic[Service.self]
+                }
+
                 let mock: Smock<Service>
 
                 init(mock: Smock<Service>) {
                     self.mock = mock
                 }
+            
+                static var staticProperty: PropertyVerifier<Service, Int> {
+                PropertyVerifier<Service, Int>(mock: mock, signature: "staticProperty")
+                }
+            
+                static func staticVoidMethod() -> MethodVerifier<Service, Void> {
+                    MethodVerifier<Service, Void>(mock: mock, signature: "staticVoidMethod()")
+                }
 
                 var readWriteProperty: WritablePropertyVerifier<Service, String> {
-                WritablePropertyVerifier<Service, String>(mock: mock, signature: "readWriteProperty")
+                    WritablePropertyVerifier<Service, String>(mock: mock, signature: "readWriteProperty")
                 }
 
                 var readOnlyProperty: PropertyVerifier<Service, String> {
@@ -260,11 +302,17 @@ struct SmockTests {
             func when(_ mock: Smock<Service>) -> ServiceStubBuilder {
                 ServiceStubBuilder(mock: mock)
             }
+            func when(_ static: Smock<Service>.Type) -> ServiceStubBuilder.Type {
+                ServiceStubBuilder.self
+            }
             #endif
 
             #if DEBUG
             func verify(_ mock: Smock<Service>) -> ServiceVerifier {
                 ServiceVerifier(mock: mock)
+            }
+            func verify(_ static: Smock<Service>.Type) -> ServiceVerifier.Type {
+                ServiceVerifier.self
             }
             #endif
             """,

@@ -6,10 +6,16 @@
 //
 
 import Smock
-import Foundation
 
 @Mockable
 protocol ExampleService: AnyObject {
+    // Covers static-specific functionality (wrappers)
+    static var staticProperty: Int { get set }
+    static func staticVoidMethod()
+    static func staticOptionalMethod() -> Int?
+    static func staticReturningMethod() -> Int
+    static func staticAsyncMethod() async
+
     var readWriteProperty: String { get set }
     var readOnlyProperty: String { get }
     var asyncProperty: Int { get async }
@@ -35,4 +41,20 @@ protocol ExampleService: AnyObject {
     )
 
     func variadic(_ args: Int...)
+}
+
+@Mockable
+protocol AnotherService {
+    var anotherProperty: Int { get }
+}
+
+enum TestError: Error {
+    case expected
+    case another
+}
+
+/// Wrapper which allows 'sending' mutable state across isolation context
+final class SendableBox<Value>: @unchecked Sendable {
+    var value: Value
+    init(_ value: Value) { self.value = value }
 }

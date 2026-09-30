@@ -114,6 +114,8 @@ public struct MockableMacro: PeerMacro {
         let stubberImpl = """
         #if DEBUG
         nonisolated struct \(stubberClassName) {
+            static var mock: Smock<\(protocolName)> { SmockStatic[\(protocolName).self] }
+        
             let mock: Smock<\(protocolName)>
             
             init(mock: Smock<\(protocolName)>) {
@@ -129,6 +131,8 @@ public struct MockableMacro: PeerMacro {
         let verifierImpl = """
         #if DEBUG
         nonisolated struct \(verifierClassName) {
+            static var mock: Smock<\(protocolName)> { SmockStatic[\(protocolName).self] }
+        
             let mock: Smock<\(protocolName)>
             
             init(mock: Smock<\(protocolName)>) {
@@ -140,18 +144,24 @@ public struct MockableMacro: PeerMacro {
         #endif
         """
 
-        let whenFunction = """
+        let whenFunctions = """
         #if DEBUG
         func when(_ mock: Smock<\(protocolName)>) -> \(stubberClassName) {
             \(stubberClassName)(mock: mock)
         }
+        func when(_ static: Smock<\(protocolName)>.Type) -> \(stubberClassName).Type {
+            \(stubberClassName).self
+        }
         #endif
         """
 
-        let verifyFunction = """
+        let verifyFunctions = """
         #if DEBUG
         func verify(_ mock: Smock<\(protocolName)>) -> \(verifierClassName) {
             \(verifierClassName)(mock: mock)
+        }
+        func verify(_ static: Smock<\(protocolName)>.Type) -> \(verifierClassName).Type {
+            \(verifierClassName).self
         }
         #endif
         """
@@ -160,8 +170,8 @@ public struct MockableMacro: PeerMacro {
             DeclSyntax(stringLiteral: mockClassImpl),
             DeclSyntax(stringLiteral: stubberImpl),
             DeclSyntax(stringLiteral: verifierImpl),
-            DeclSyntax(stringLiteral: whenFunction),
-            DeclSyntax(stringLiteral: verifyFunction)
+            DeclSyntax(stringLiteral: whenFunctions),
+            DeclSyntax(stringLiteral: verifyFunctions)
         ]
     }
 
@@ -169,6 +179,9 @@ public struct MockableMacro: PeerMacro {
 
     private static func mockMethod(_ function: FunctionDeclSyntax) -> String {
         // Extract function details
+        let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
+        let staticKeyword = isStatic ? "static " : ""
+
         let isThrowing = function.signature.effectSpecifiers?.throwsClause != nil
         let tryKeyword = isThrowing ? "try" : "try!"
 
@@ -187,7 +200,7 @@ public struct MockableMacro: PeerMacro {
 
         let signature = function.memberSignature // no line breaks
         return """
-        nonisolated func \(signature) {
+        nonisolated \(staticKeyword)func \(signature) {
             trackMethod("\(signature)"\(paramValues))
             return \(tryKeyword)\(awaitKeyword) getValue(for: "\(signature)"\(paramValues))
         }
@@ -203,6 +216,9 @@ public struct MockableMacro: PeerMacro {
         else {
             return ""
         }
+
+        let isStatic = property.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
+        let staticKeyword = isStatic ? "static " : ""
 
         var isThrowing = false
         var isAsync = false
@@ -242,7 +258,7 @@ public struct MockableMacro: PeerMacro {
         }
 
         return """
-        nonisolated var \(identifier): \(type) {
+        nonisolated \(staticKeyword)var \(identifier): \(type) {
         \(getter)\(setter)
         }
         """
@@ -284,8 +300,11 @@ public struct MockableMacro: PeerMacro {
             builderType = "Async" + builderType
         }
 
+        let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
+        let staticKeyword = isStatic ? "static " : ""
+
         return """
-        func \(name)(\(paramMatchers)) -> \(builderType) {
+        \(staticKeyword)func \(name)(\(paramMatchers)) -> \(builderType) {
             \(builderType)(mock: mock, signature: "\(function.memberSignature)"\(paramCapture))
         }
         """
@@ -313,8 +332,11 @@ public struct MockableMacro: PeerMacro {
             }
         }
 
+        let isStatic = property.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
+        let staticKeyword = isStatic ? "static " : ""
+
         return """
-        var \(identifier): \(builderType) {
+        \(staticKeyword)var \(identifier): \(builderType) {
             \(builderType)(mock: mock, signature: "\(identifier)")
         }
         """
@@ -347,8 +369,11 @@ public struct MockableMacro: PeerMacro {
             ", params: \(paramNames.joined(separator: ", "))"
         }
 
+        let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
+        let staticKeyword = isStatic ? "static " : ""
+
         return """
-        func \(name)(\(paramMatchers)) -> MethodVerifier<\(protocolName), \(returnType)> {
+        \(staticKeyword)func \(name)(\(paramMatchers)) -> MethodVerifier<\(protocolName), \(returnType)> {
             MethodVerifier<\(protocolName), \(returnType)>(mock: mock, signature: "\(function.memberSignature)"\(paramCapture))
         }
         """
@@ -376,8 +401,11 @@ public struct MockableMacro: PeerMacro {
             "PropertyVerifier<\(protocolName), \(type)>"
         }
 
+        let isStatic = property.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
+        let staticKeyword = isStatic ? "static " : ""
+
         return """
-        var \(identifier): \(verifierType) {
+        \(staticKeyword)var \(identifier): \(verifierType) {
             \(verifierType)(mock: mock, signature: "\(identifier)")
         }
         """
@@ -388,6 +416,8 @@ public struct MockableMacro: PeerMacro {
 
 private extension FunctionDeclSyntax {
     var memberSignature: String {
-        self.with(\.funcKeyword, "").signatureDescription(removeLineBreaks: true)
+        self.with(\.funcKeyword, "") // i.e. func
+            .with(\.modifiers, []) // e.g. static
+            .signatureDescription(removeLineBreaks: true)
     }
 }

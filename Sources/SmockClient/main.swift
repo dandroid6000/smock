@@ -10,25 +10,18 @@ struct Baz: Equatable {
 
 @Mockable
 protocol Foo {
-//    var readOnlyProperty: Int { get }
-//    var throwingProperty: Int { get throws }
-//    var readWriteProperty: Int { get set }
-
     func noArgs() throws
-//    func oneArg(_ a: Int)
     func twoArgs(_ a: Int, _ b: Int) -> Int
     func twoArgs(_ a: Int, _ b: Int)
-//    func twoArgs(_ a: Int, c: Int) -> Int
     func twoArgs(_ a: Int, _ b: String)
-//    func customArg(baz: Baz)
-//    func arrayArg(_ a: [Int])
-//    func arrayArg(_ a: Int...) // FIXME: Stubber has the same signature for this and the array variant...
-//    func dictArg(_ a: [String: Int])
-//    var twoArgs_aInt_cInt: Int { get }
 }
 
 @Mockable
 protocol Bar {
+    static var minus1: Int { get }
+    static var minus2: Int { get async }
+    static func minus3()
+
     var zero: Int? { get }
     var one: Int { get async throws }
     var two: Int { get set }
@@ -39,6 +32,8 @@ protocol Bar {
 
 let mock = BarMock(relaxed: false)
 
+when(BarMock.self).minus1.thenReturn(5)
+
 when(mock).zero.thenReturn(nil)
 when(mock).one.thenReturn(1)
 when(mock).two.then {
@@ -47,7 +42,7 @@ when(mock).two.then {
 }
 //when(mock).three().thenReturn()
 when(mock).four(a: 3).then {
-    print("INVOKED `.four` with \($0.getInt(at: 0))")
+    print("INVOKED `.four` with \(try $0.getInt(at: 0))")
     throw AnError.error
 }
 when(mock).five(.any(), .any()).then { args in
@@ -55,6 +50,11 @@ when(mock).five(.any(), .any()).then { args in
 }
 //when(mock).four(.equalTo(2)).thenReturn(4)
 //when(mock).four(.equalTo(3)).thenReturn(5)
+
+_ = BarMock.minus1
+
+SmockStatic[Bar.self].relaxed = true
+BarMock.minus3() // no stubs
 
 _ = mock.zero
 _ = try await mock.one
@@ -72,18 +72,21 @@ do {
 }
 mock.five(5, "a")
 
-verifyNoInteractions(mock)
+//verifyNoInteractions(mock)
+verifyNoInteractions(BarMock.self)
 
 verify(mock).four(a: .any()).wasCalled(.never)
+verify(BarMock.self).minus1.wasRead(.exactly(1))
+verifyNoMoreInteractions(BarMock.self)
 
 inOrder {
     verify(mock).one.wasRead()
 //    verify(mock).two.wasRead()
     verify(mock).two.wasSet(to: 1)
     verify(mock).three().wasCalled(.never)
-    verify(mock).one.wasRead()
-//    verify(mock).four(3).wasCalled(.exactly(1))
-//    verify(mock).one.wasRead() // out of order
+//    verify(mock).one.wasRead()
+    verify(mock).four(a: 3).wasCalled(.exactly(1))
+    verify(mock).one.wasRead() // out of order
 }
 
-verifyNoMoreInteractions(mock)
+//verifyNoMoreInteractions(mock)

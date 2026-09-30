@@ -8,7 +8,7 @@
 #if DEBUG
 import IssueReporting
 
-/// Enumeration of ways to verify an invocation.
+/// Ways to verify an invocation.
 public enum Verification: CustomStringConvertible {
     /// The member was invoked *exactly* n times.
     case exactly(Int)
@@ -16,7 +16,7 @@ public enum Verification: CustomStringConvertible {
     case atLeast(Int)
     /// The member was invoked *at most* n times.
     case atMost(Int)
-    /// The member was never invoked..
+    /// The member was never invoked.
     case never
 
     public var description: String {
@@ -24,7 +24,7 @@ public enum Verification: CustomStringConvertible {
         case .exactly(let target): "\(target)"
         case .atLeast(let target): "\(target) or more"
         case .atMost(let target): "\(target) or less"
-        case .never: "never"
+        case .never: "0"
         }
     }
 
@@ -42,7 +42,7 @@ public enum Verification: CustomStringConvertible {
 public class Verifier<T> {
     fileprivate let mock: Smock<T>
     fileprivate let signature: String
-    fileprivate let params: [AnyArgumentMatcher] // will be `nil` for properties and set for methods
+    fileprivate let params: [AnyArgumentMatcher]
 
     internal init(mock: Smock<T>, signature: String, params: [AnyArgumentMatcher]) {
         self.mock = mock
@@ -61,8 +61,10 @@ public class Verifier<T> {
         let calls = mock.verifyCalls(for: signature, matching: params)
 
         if !verification.verify(count: calls.count) {
+            let staticType = mock.isStatic ? "\(T.self)" : ""
+            let callDescription = "\(staticType)\(Call.description(for: signature, params: params))"
             reportIssue(
-                "Verification failed: \(Call.description(for: signature, params: params)); expected: \(verification), actual: \(calls.count)",
+                "Verification failed: \(callDescription)\n\tExpected: \(verification)\n\tActual: \(calls.count)",
                 filePath: filePath,
                 line: line
             )
@@ -74,8 +76,10 @@ public class Verifier<T> {
     }
 }
 
-/// A ``Verifier`` for methods which matches calls parameters to a list of ``ArgumentMatcher``s.
+/// A ``Verifier`` for methods which matches call parameters to a list of ``ArgumentMatcher``s.
 public class MethodVerifier<T, R>: Verifier<T> {
+    /// Creates a new verifier for the given mock, member signature, and argument matchers.
+    /// - Warning: This method is called by generated code and should not be invoked directly.
     public convenience init<each P>(mock: Smock<T>, signature: String, params: repeat ArgumentMatcher<each P>) {
         // Wrap ArgumentMatchers to store in array
         var paramArray: [AnyArgumentMatcher] = []
@@ -96,6 +100,8 @@ public class MethodVerifier<T, R>: Verifier<T> {
 
 /// A ``Verifier`` for properties which can verifiy property reads.
 public class PropertyVerifier<T, R: Sendable>: Verifier<T> {
+    /// Creates a new verifier for the given mock and member signature.
+    /// - Warning: This method is called by generated code and should not be invoked directly.
     public convenience init(mock: Smock<T>, signature: String) {
         self.init(mock: mock, signature: signature, params: [])
     }
@@ -124,6 +130,38 @@ public class WritablePropertyVerifier<T, R: Sendable>: PropertyVerifier<T, R> {
         let params = [value as AnyArgumentMatcher]
         return verify(params: params, by: verification, filePath: filePath, line: line)
     }
+}
+
+// MARK: Global Verification
+
+/// Asserts that no invocations occurred on the given mock.
+public func verifyNoInteractions<T>(_ mock: Smock<T>, filePath: StaticString = #filePath, line: UInt = #line) {
+    let allCalls = mock.getAllCalls()
+    guard !allCalls.isEmpty else { return }
+
+    let callMap = allCalls.sortedCallDescriptions()
+    let staticType = mock.isStatic ? "static " : ""
+    reportIssue("Expected no \(staticType)calls; found...\n\t\(callMap)", filePath: filePath, line: line)
+}
+
+/// Asserts that no static invocations occurred on the given type.
+public func verifyNoInteractions<T>(_ staticType: Smock<T>.Type, filePath: StaticString = #filePath, line: UInt = #line) {
+    verifyNoInteractions(SmockStatic[T.self], filePath: filePath, line: line)
+}
+
+/// Asserts that all invocations on the given mock have been verified.
+public func verifyNoMoreInteractions<T>(_ mock: Smock<T>, filePath: StaticString = #filePath, line: UInt = #line) {
+    let unverified = mock.getUnverifiedCalls()
+    guard !unverified.isEmpty else { return }
+
+    let callMap = unverified.sortedCallDescriptions()
+    let staticType = mock.isStatic ? "static " : ""
+    reportIssue("Unverified \(staticType)calls remaining...\n\t\(callMap)", filePath: filePath, line: line)
+}
+
+/// Asserts that all static invocations on the given type have been verified.
+public func verifyNoMoreInteractions<T>(_ staticType: Smock<T>.Type, filePath: StaticString = #filePath, line: UInt = #line) {
+    verifyNoMoreInteractions(SmockStatic[T.self], filePath: filePath, line: line)
 }
 
 // MARK: - Order Verification
@@ -195,7 +233,7 @@ public struct InOrderBuilder {
 /// mock.getAnotherValue()
 /// mock.didGetValue = true
 /// inOrder {
-///     verify(mock).getAnotherValue.wasCalled()
+///     verify(mock).getAnotherValue().wasCalled()
 ///     verify(mock).didGetValue.wasSet() // PASS - was called after .getAnotherValue()
 ///     verify(mock).getValue().wasCalled() // FAIL - out of order
 /// }
@@ -221,7 +259,6 @@ public func inOrder(@InOrderBuilder _ builder: () -> [VerificationResult]) {
         var message = "In-Order Verification Failed at step \(index + 1) of \(verifications.count)"
         message += "\n\tExpected: \(verification)"
         message += "\n\tto occur AFTER: \(lastVerification)"
-        message += "\n\tReason: All matching invocations occurred out of order (prior to preceding steps)."
 
         var callMap = inOrder.map {
             if $0.call != nil {
@@ -231,7 +268,7 @@ public func inOrder(@InOrderBuilder _ builder: () -> [VerificationResult]) {
             }
         }
         callMap.append("❌ \(verification)")
-        message += "\n\tChronological invocations for this step:\n\t\(callMap.joined(separator: "\n\t"))"
+        message += "\nChronological invocations for this step:\n\t\(callMap.joined(separator: "\n\t"))"
 
         reportIssue(message, filePath: verification.filePath, line: verification.line)
         break

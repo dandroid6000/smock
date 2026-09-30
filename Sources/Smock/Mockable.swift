@@ -8,8 +8,16 @@
 /// Marks this type as `Mockable`, generating associated types including a `Mock`, `StubBuilder`, and `Verifier`, as well as typed functions
 /// for generating instances.
 ///
-/// Types are conditionally compiled for DEBUG builds only, as they are intended to only be used in tests.
+/// Generated code is conditionally compiled for DEBUG builds only, as they are intended to be used in tests only.
 ///
 /// - Note: This macro can only be attached to a `protocol` definition.
-@attached(peer, names: suffixed(Mock), suffixed(StubBuilder), suffixed(Verifier), named(when), named(verify))
+@attached(
+    peer,
+    names:
+        suffixed(Mock),
+        suffixed(StubBuilder),
+        suffixed(Verifier),
+        named(when),
+        named(verify)
+)
 public macro Mockable() = #externalMacro(module: "SmockMacros", type: "MockableMacro")

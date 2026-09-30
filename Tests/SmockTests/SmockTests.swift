@@ -257,6 +257,47 @@ struct SmockTests {
         #expect(awaited == "awaited")
     }
 
+    @Test
+    func `reset should clear stubbed data`() async throws {
+        await #expect(processExitsWith: .failure) {
+            let mock = ExampleServiceMock()
+            when(mock).readOnlyProperty.thenReturn("value")
+
+            let value = mock.readOnlyProperty
+            verify(mock).readOnlyProperty.wasRead()
+            #expect(value == "value")
+
+            reset(mock)
+
+            // No longer stubbed
+            _ = mock.readOnlyProperty
+        }
+    }
+
+    // MARK: - Args
+
+    @Test
+    func `answer should provide arguments as input`() async throws {
+        // Arrange
+        when(mock).twoArgMethod(.any(), .any()).then { args in
+            // Assert
+            #expect(throws: Args.Error.invalidType) {
+                try args[0] as Int
+            }
+            #expect(throws: Args.Error.invalidType) {
+                try args.getString(at: 1)
+            }
+
+            let first: String = try! args[0]
+            let second = try! args.getInt(at: 1)
+            #expect(!first.isEmpty)
+            #expect(second == 0)
+        }
+
+        // Act
+        mock.twoArgMethod("not empty", 0)
+    }
+
     // MARK: - Verification
 
     @Test
@@ -455,20 +496,4 @@ struct SmockTests {
             }
         }
     }
-}
-
-@Mockable
-protocol AnotherService {
-    var anotherProperty: Int { get }
-}
-
-enum TestError: Error {
-    case expected
-    case another
-}
-
-/// Wrapper which allows 'sending' mutable state across isolation context
-final class SendableBox<Value>: @unchecked Sendable {
-    var value: Value
-    init(_ value: Value) { self.value = value }
 }

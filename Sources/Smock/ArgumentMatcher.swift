@@ -33,7 +33,8 @@ public enum ArgumentMatcher<T: Sendable>: AnyArgumentMatcher {
             // Compare if Equatable
             return Self.isEqual(equatableValue, other)
         } else {
-            // Fallback to reference identity (will be false for value types)
+            // Fallback to reference identity
+            // - Note: cast succeeds for value types, but will return false
             let valueRef = value as AnyObject
             let otherRef = other as AnyObject
             return valueRef === otherRef
@@ -118,7 +119,7 @@ protocol AnyArgumentMatcher: Sendable {
     func matches(_ other: Any) -> Bool
 }
 
-extension AnyArgumentMatcher {
+private extension AnyArgumentMatcher {
     /// Generic method to cast and compare Equatable types
     static func isEqual<T: Equatable>(_ lhs: T, _ rhs: Any) -> Bool {
         guard let rhsTyped = rhs as? T else { return false }

@@ -16,6 +16,28 @@ struct Call: Sendable {
         Call.description(for: signature, params: params)
     }
 
+    /// Converts `signature` and `params` into human-friendly syntax.
+    ///
+    /// ** Examples**
+    /// ```swift
+    /// // Output: .foo
+    /// description(for: "foo")
+    ///
+    /// // Output: .foo = 1
+    /// description(for: "foo", params: [1])
+    ///
+    /// // Output: .bar()
+    /// description(for: "bar()", params: [])
+    ///
+    /// // Output: .bar(1)
+    /// description(for: "bar(_ a: Int)", params: [1])
+    ///
+    /// // Output: .bar(a: 1)
+    /// description(for: "bar(a: Int)", params: [1])
+    ///
+    /// // Output: .bar(_:b:)
+    /// description(for: "bar(_ a: Int, b: Int)")
+    /// ```
     static func description(for signature: String, params: [Any]? = nil) -> String {
         guard signature.contains("(") else {
             // Property
