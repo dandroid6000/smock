@@ -20,9 +20,10 @@ import Mutex
 /// SmockStatic[MyService.self].relaxed = true
 /// ```
 public enum SmockStatic {
-    /// A registry of static mocks by type
+    /// A registry of static mocks by type (using Any due to generics). Each value is a Smock instance for the type assocatied with the key.
     fileprivate static let staticMocks = Mutex<[ObjectIdentifier: Any]>([:])
 
+    /// Get or create the static mock associated with the `type`.
     public static subscript<T>(type: T.Type) -> Smock<T> {
         staticMocks.withLock { mocks in
             let objId = ObjectIdentifier(type)
@@ -40,7 +41,7 @@ public enum SmockStatic {
     }
 }
 
-/// Clears all static stubs and tracked calls.
+/// Clears all metadata associated with the static mock.
 ///
 /// - SeeAlso: ``reset<T>(_ mock: Smock<T>, includeStatic: Bool = false)``
 public func reset<T>(_ static: Smock<T>.Type) {

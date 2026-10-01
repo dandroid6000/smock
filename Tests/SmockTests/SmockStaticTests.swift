@@ -16,7 +16,7 @@ class SmockStaticTests {
 
     deinit {
         // Clean the slate after each test
-        reset(ExampleServiceMock.self)
+        SmockStatic.reset()
     }
 
     // MARK: - Strict/Relaxed
