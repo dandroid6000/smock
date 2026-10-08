@@ -48,7 +48,7 @@ struct Call: Sendable {
             }
         }
 
-        // Method
+        // Method/Subscript
         let split = signature.split(separator: "(", maxSplits: 1)
         guard
             let name = split.first,
@@ -66,7 +66,7 @@ struct Call: Sendable {
                 .split(separator: " ").first ?? ""
         }
 
-        let params = if let params {
+        let paramNamesAndValues = if let params {
             zip(names, params).map { name, param in
                 if name == "_" {
                     "\(param)"
@@ -79,7 +79,17 @@ struct Call: Sendable {
             names.map { "\($0):" }.joined()
         }
 
-        return ".\(name)(\(params))"
+        return if name == "subscript" {
+            // Subscript
+            if let params, params.count > names.count {
+                "\(name)[\(paramNamesAndValues)] = \(params[names.count])"
+            } else {
+                "\(name)[\(paramNamesAndValues)]"
+            }
+        } else  {
+            // Method
+            ".\(name)(\(paramNamesAndValues))"
+        }
     }
 }
 #endif

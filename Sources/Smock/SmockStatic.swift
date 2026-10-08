@@ -57,22 +57,10 @@ extension Smock {
         set { SmockStatic[T.self].relaxed = newValue }
     }
 
-    /// Tracks a static method invocation by its signature, and associated parameters.
+    /// Tracks a static invocation by its signature and associated parameters (if any).
     /// - Warning: This method is called by generated code and should not be invoked directly.
-    public static func trackMethod<each P: Sendable>(_ signature: String, params: repeat each P) {
-        SmockStatic[T.self].trackMethod(signature, params: repeat each params)
-    }
-
-    /// Tracks a static property getter by its signature.
-    /// - Warning: This method is called by generated code and should not be invoked directly.
-    public static func trackGetter(_ signature: String) {
-        SmockStatic[T.self].trackGetter(signature)
-    }
-
-    /// Tracks a static property setter by its signature, and assigned value.
-    /// - Warning: This method is called by generated code and should not be invoked directly.
-    public static func trackSetter<V: Sendable>(_ signature: String, value: V) {
-        SmockStatic[T.self].trackSetter(signature, value: value)
+    public static func trackCall<each P: Sendable>(_ signature: String, params: repeat each P) {
+        SmockStatic[T.self].trackCall(signature, params: repeat each params)
     }
 
     /// Gets the next stubbed value for a member with the given signature which matches the provided parameters.

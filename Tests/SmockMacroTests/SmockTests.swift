@@ -26,6 +26,10 @@ struct SmockTests {
                 var throwingProperty: String { get throws }
                 var asyncThrowingProperty: String { get async throws }
 
+                init(id: String)
+                init?(failableId: String)
+                init!(implicitlyUnwrapped: String)
+
                 func voidMethod() // This comment should get stripped
                 func returningMethod() -> Int
                 func optionalMethod() -> Int?
@@ -50,6 +54,10 @@ struct SmockTests {
                 var asyncProperty: Int { get async }
                 var throwingProperty: String { get throws }
                 var asyncThrowingProperty: String { get async throws }
+
+                init(id: String)
+                init?(failableId: String)
+                init!(implicitlyUnwrapped: String)
 
                 func voidMethod() // This comment should get stripped
                 func returningMethod() -> Int
@@ -127,6 +135,21 @@ struct SmockTests {
                         trackGetter("asyncThrowingProperty")
                         return try await getValue(for: "asyncThrowingProperty")
                     }
+                }
+
+                /// Protocol-required initializer. Generally should not be used in favor of `init(relaxed:)`.
+                convenience init(id: String) {
+                    self.init(relaxed: false)
+                }
+
+                /// Protocol-required initializer. Generally should not be used in favor of `init(relaxed:)`.
+                convenience init?(failableId: String) {
+                    self.init(relaxed: false)
+                }
+
+                /// Protocol-required initializer. Generally should not be used in favor of `init(relaxed:)`.
+                convenience init!(implicitlyUnwrapped: String) {
+                    self.init(relaxed: false)
                 }
 
                 /// A mocked protocol implementation which tracks calls and retrieves stubs.

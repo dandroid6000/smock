@@ -52,12 +52,18 @@ public class Verifier<T> {
 
     /// Convenience for performing verification
     fileprivate func verify(
-        params: [AnyArgumentMatcher]? = nil,
+        params: [AnyArgumentMatcher] = [],
         by verification: Verification,
         filePath: StaticString,
         line: UInt
     ) -> VerificationResult {
-        let params = params ?? self.params
+        // Append inbound params to stored for comparison (see SmockMacro.mockSubscript())
+        //  - getter: [] + [] -> []
+        //  - setter: [] + ["newValue"] -> ["newValue"]
+        //  - subscript read: [1, "default"] + [] -> [1, "default"]
+        //  - subscript write: [1, "default"] + ["newValue"] -> [1, "default", "newValue"]
+        //  - method: [1, "two"] + [] -> [1, "two"]
+        let params = self.params + params
         let calls = mock.verifyCalls(for: signature, matching: params)
 
         if !verification.verify(count: calls.count) {
@@ -102,8 +108,11 @@ public class MethodVerifier<T, R>: Verifier<T> {
 public class PropertyVerifier<T, R: Sendable>: Verifier<T> {
     /// Creates a new verifier for the given mock and member signature.
     /// - Warning: This method is called by generated code and should not be invoked directly.
-    public convenience init(mock: Smock<T>, signature: String) {
-        self.init(mock: mock, signature: signature, params: [])
+    public convenience init<each P>(mock: Smock<T>, signature: String, params: repeat ArgumentMatcher<each P>) {
+        // Wrap ArgumentMatchers to store in array
+        var paramArray: [AnyArgumentMatcher] = []
+        repeat paramArray.append(each params as AnyArgumentMatcher)
+        self.init(mock: mock, signature: signature, params: paramArray)
     }
 
     /// Asserts that the property was read in accordance with the given ``Verification``.

@@ -59,20 +59,18 @@ private extension Trivia {
     }
 }
 
-extension FunctionDeclSyntax {
+extension SyntaxProtocol {
     /// Reproduces the full header & signature of the function, excluding comments,
     /// while completely preserving line-wrapping and indentation.
     func signatureDescription(
         removeComments: Bool = true,
         removeLineBreaks: Bool = false
     ) -> String {
-//        let headerOnlyNode = self.with(\.body, nil)
-
         // Clean the header while preserving other formatting trivia
         let cleanedNode = SignatureCleaner(
             removeComments: removeComments,
             removeLineBreaks: removeLineBreaks
-        ).visit(self)
+        ).rewrite(Syntax(self))
 
         // 3. Trim extra dangling spacing at the very end of the signature text
         return cleanedNode.description.trimmingWhitespaceByRegex()

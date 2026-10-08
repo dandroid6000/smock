@@ -47,31 +47,13 @@ open class Smock<T>: @unchecked Sendable {
         self.isStatic = isStatic
     }
 
-    /// Tracks a method invocation by its signature and associated parameters.
+    /// Tracks an invocation by its signature and associated parameters (if any).
     /// - Warning: This method is called by generated code and should not be invoked directly.
-    public final func trackMethod<each P: Sendable>(_ signature: String, params: repeat each P) {
+    public final func trackCall<each P: Sendable>(_ signature: String, params: repeat each P) {
         var paramArray: [any Sendable] = []
         repeat paramArray.append(each params)
-        print("Tracked method: \(staticType)\(Call.description(for: signature, params: paramArray))")
+        print("Tracked: \(staticType)\(Call.description(for: signature, params: paramArray))")
         let call = Call(params: paramArray)
-        getOrCreateMetadata(for: signature)
-            .addCall(call)
-    }
-
-    /// Tracks a property getter by its signature.
-    /// - Warning: This method is called by generated code and should not be invoked directly.
-    public final func trackGetter(_ signature: String) {
-        print("Tracked getter: \(staticType)\(Call.description(for: signature))")
-        let call = Call(params: []) // Empty params implies a `get` operation
-        getOrCreateMetadata(for: signature)
-            .addCall(call)
-    }
-
-    /// Tracks a property setter by its signature and assigned value.
-    /// - Warning: This method is called by generated code and should not be invoked directly.
-    public final func trackSetter<V: Sendable>(_ signature: String, value: V) {
-        print("Tracked setter: \(staticType)\(Call.description(for: signature, params: [value]))")
-        let call = Call(params: [value])
         getOrCreateMetadata(for: signature)
             .addCall(call)
     }
