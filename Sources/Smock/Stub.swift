@@ -64,6 +64,9 @@ public struct Args {
     public func getString(at index: Int) throws -> String { try self[index] }
 
     /// Gets the value at the given `index` and casts it to `T`.
+    public func get<T>(at index: Int, as type: T.Type = T.self) throws -> T { try self[index] }
+
+    /// Gets the value at the given `index` and casts it to `T`.
     ///
     /// - throws Error.invalidType if the cast fails.
     public subscript<T>(index: Int) -> T {

@@ -6,6 +6,7 @@
 //
 
 extension String {
+    @available(*, deprecated, renamed: "trimmedDescription", message: "Use trimmedDescription")
     func trimmingWhitespaceByRegex() -> String {
         #if swift(>=6.0)
         replacing(/^\s+|\s+$/, with: "")

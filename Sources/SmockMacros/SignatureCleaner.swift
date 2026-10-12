@@ -73,6 +73,6 @@ extension SyntaxProtocol {
         ).rewrite(Syntax(self))
 
         // 3. Trim extra dangling spacing at the very end of the signature text
-        return cleanedNode.description.trimmingWhitespaceByRegex()
+        return cleanedNode.trimmedDescription
     }
 }

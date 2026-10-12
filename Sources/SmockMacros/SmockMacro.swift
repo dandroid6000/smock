@@ -219,7 +219,7 @@ public struct MockableMacro: PeerMacro {
         guard
             let binding = property.bindings.first,
             let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
-            let type = binding.typeAnnotation?.type.description.trimmingWhitespaceByRegex()
+            let type = binding.typeAnnotation?.type.trimmedDescription
         else {
             return ""
         }
@@ -236,10 +236,10 @@ public struct MockableMacro: PeerMacro {
             if let getter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.get) }) {
                 isThrowing = getter.effectSpecifiers?.throwsClause != nil
                 isAsync = getter.effectSpecifiers?.asyncSpecifier != nil
-                getClause = getter.description.trimmingWhitespaceByRegex()
+                getClause = getter.trimmedDescription
             }
             if let setter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.set) }) {
-                setClause = setter.description.trimmingWhitespaceByRegex()
+                setClause = setter.trimmedDescription
             }
         }
 
@@ -273,7 +273,7 @@ public struct MockableMacro: PeerMacro {
     }
 
     private static func mockInit(_ initializer: InitializerDeclSyntax) -> String {
-        let signature = initializer.description.trimmingWhitespaceByRegex()
+        let signature = initializer.trimmedDescription
         return """
         /// Protocol-required initializer. Generally should not be used in favor of `init(relaxed:)`.
         convenience \(signature) {
@@ -305,10 +305,10 @@ public struct MockableMacro: PeerMacro {
             if let getter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.get) }) {
                 isThrowing = getter.effectSpecifiers?.throwsClause != nil
                 isAsync = getter.effectSpecifiers?.asyncSpecifier != nil
-                getClause = getter.description.trimmingWhitespaceByRegex()
+                getClause = getter.trimmedDescription
             }
             if let setter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.set) }) {
-                setClause = setter.description.trimmingWhitespaceByRegex()
+                setClause = setter.trimmedDescription
             }
         }
 
@@ -349,12 +349,12 @@ public struct MockableMacro: PeerMacro {
 
     private static func stubMethod(_ function: FunctionDeclSyntax, protocolName: String) -> String {
         let parameters = function.signature.parameterClause.parameters
-        let returnType = function.signature.returnClause?.type.description.trimmingWhitespaceByRegex() ?? "Void"
+        let returnType = function.signature.returnClause?.type.trimmedDescription ?? "Void"
 
         let paramMatchers: String = parameters
             .map {
                 let secondName = if let name = $0.secondName { " \(name.text)" } else { "" }
-                var type = $0.type.description.trimmingWhitespaceByRegex()
+                var type = $0.type.cleanedDescription()
                 // Stub varargs as arrays
                 if $0.ellipsis != nil {
                     type = "[\(type)]"
@@ -409,7 +409,7 @@ public struct MockableMacro: PeerMacro {
         guard
             let binding = property.bindings.first,
             let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
-            let type = binding.typeAnnotation?.type.description.trimmingWhitespaceByRegex()
+            let type = binding.typeAnnotation?.type.trimmedDescription
         else {
             return ""
         }
@@ -440,12 +440,12 @@ public struct MockableMacro: PeerMacro {
 
     private static func stubSubscript(_ subscriptDecl: SubscriptDeclSyntax, protocolName: String) -> String {
         let parameters = subscriptDecl.parameterClause.parameters
-        let returnType = subscriptDecl.returnClause.type.description.trimmingWhitespaceByRegex()
+        let returnType = subscriptDecl.returnClause.type.trimmedDescription
 
         let paramMatchers: String = parameters
             .map {
                 let secondName = if let name = $0.secondName { " \(name.text)" } else { "" }
-                var type = $0.type.description.trimmingWhitespaceByRegex()
+                var type = $0.type.cleanedDescription()
                 // Stub varargs as arrays
                 if $0.ellipsis != nil {
                     type = "[\(type)]"
@@ -507,12 +507,12 @@ public struct MockableMacro: PeerMacro {
 
     private static func verifyMethod(_ function: FunctionDeclSyntax, protocolName: String) -> String {
         let parameters = function.signature.parameterClause.parameters
-        let returnType = function.signature.returnClause?.type.description.trimmingWhitespaceByRegex() ?? "Void"
+        let returnType = function.signature.returnClause?.type.trimmedDescription ?? "Void"
 
         let paramMatchers: String = parameters
             .map {
                 let secondName = if let name = $0.secondName { " \(name.text)" } else { "" }
-                var type = $0.type.description.trimmingWhitespaceByRegex()
+                var type = $0.type.cleanedDescription()
                 // Stub varargs as arrays
                 if $0.ellipsis != nil {
                     type = "[\(type)]"
@@ -558,7 +558,7 @@ public struct MockableMacro: PeerMacro {
         guard
             let binding = property.bindings.first,
             let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
-            let type = binding.typeAnnotation?.type.description.trimmingWhitespaceByRegex()
+            let type = binding.typeAnnotation?.type.trimmedDescription
         else {
             return ""
         }
@@ -589,12 +589,12 @@ public struct MockableMacro: PeerMacro {
 
     private static func verifySubscript(_ subscriptDecl: SubscriptDeclSyntax, protocolName: String) -> String {
         let parameters = subscriptDecl.parameterClause.parameters
-        let returnType = subscriptDecl.returnClause.type.description.trimmingWhitespaceByRegex()
+        let returnType = subscriptDecl.returnClause.type.trimmedDescription
 
         let paramMatchers: String = parameters
             .map {
                 let secondName = if let name = $0.secondName { " \(name.text)" } else { "" }
-                var type = $0.type.description.trimmingWhitespaceByRegex()
+                var type = $0.type.cleanedDescription()
                 // Stub varargs as arrays
                 if $0.ellipsis != nil {
                     type = "[\(type)]"
@@ -665,5 +665,30 @@ private extension SubscriptDeclSyntax {
         self.with(\.modifiers, []) // e.g. static
             .with(\.accessorBlock, nil) // e.g. { get set }
             .signatureDescription(removeLineBreaks: true)
+    }
+}
+
+extension TypeSyntax {
+    /// Converts a TypeSyntax into a clean string suitable for generic specialization (e.g. `Foo<TheType>`)
+    func cleanedDescription() -> String {
+        guard let attributedType = self.as(AttributedTypeSyntax.self) else {
+            // Nothing to remove
+            return self.trimmedDescription
+        }
+
+        // Filter parameter-only attributes that break generic specialization
+        let attributesToRemove: Set<String> = ["escaping", "autoclosure"]
+        let filteredElements = attributedType.attributes.filter { element in
+            switch element {
+            case .attribute(let attribute): !attributesToRemove.contains(attribute.attributeName.trimmedDescription)
+            // Keep compiler directives like #if intact
+            default: true
+            }
+        }
+
+        return attributedType
+        .with(\.specifiers, []) // inout, isolated, consuming, borrowing, etc.
+        .with(\.attributes, filteredElements)
+        .trimmedDescription
     }
 }
