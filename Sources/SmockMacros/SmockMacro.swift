@@ -348,7 +348,6 @@ public struct MockableMacro: PeerMacro {
     // MARK: Stubber members
 
     private static func stubMethod(_ function: FunctionDeclSyntax, protocolName: String) -> String {
-        let name = function.name.text
         let parameters = function.signature.parameterClause.parameters
         let returnType = function.signature.returnClause?.type.description.trimmingWhitespaceByRegex() ?? "Void"
 
@@ -384,11 +383,24 @@ public struct MockableMacro: PeerMacro {
         let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
         let staticKeyword = isStatic ? "static " : ""
 
+        let signature = function.memberSignature // includes generics, etc.
+        let name = if let parensIndex = signature.firstIndex(of: "(") {
+            String(signature.prefix(upTo: parensIndex))
+        } else {
+            signature
+        }
+
+        let whereClause = if let clause = function.genericWhereClause {
+            " \(clause.description)"
+        } else {
+            ""
+        }
+
         let matcherComment = parameters.isEmpty ? "" : "accepts argument matchers for each parameter and "
         return """
         /// A duplicate protocol implementation which \(matcherComment)returns a stub builder.
-        \(staticKeyword)func \(name)(\(paramMatchers)) -> \(builderType) {
-            \(builderType)(mock: mock, signature: "\(function.memberSignature)"\(paramCapture))
+        \(staticKeyword)func \(name)(\(paramMatchers)) -> \(builderType)\(whereClause) {
+            \(builderType)(mock: mock, signature: "\(signature)"\(paramCapture))
         }
         """
     }
@@ -470,10 +482,23 @@ public struct MockableMacro: PeerMacro {
         let isStatic = subscriptDecl.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
         let staticKeyword = isStatic ? "static " : ""
 
+        let signature = subscriptDecl.memberSignature // includes generics, etc.
+        let name = if let parensIndex = signature.firstIndex(of: "(") {
+            String(signature.prefix(upTo: parensIndex))
+        } else {
+            signature
+        }
+
+        let whereClause = if let clause = subscriptDecl.genericWhereClause {
+            " \(clause.description)"
+        } else {
+            ""
+        }
+
         return """
         /// A duplicate protocol implementation which accepts argument matchers for each parameter and returns a stub builder.
-        \(staticKeyword)subscript(\(paramMatchers)) -> \(builderType) {
-            \(builderType)(mock: mock, signature: "\(subscriptDecl.memberSignature)"\(paramCapture))
+        \(staticKeyword)\(name)(\(paramMatchers)) -> \(builderType)\(whereClause) {
+            \(builderType)(mock: mock, signature: "\(signature)"\(paramCapture))
         }
         """
     }
@@ -481,7 +506,6 @@ public struct MockableMacro: PeerMacro {
     // MARK: Verifier members
 
     private static func verifyMethod(_ function: FunctionDeclSyntax, protocolName: String) -> String {
-        let name = function.name.text
         let parameters = function.signature.parameterClause.parameters
         let returnType = function.signature.returnClause?.type.description.trimmingWhitespaceByRegex() ?? "Void"
 
@@ -508,11 +532,24 @@ public struct MockableMacro: PeerMacro {
         let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
         let staticKeyword = isStatic ? "static " : ""
 
+        let signature = function.memberSignature // includes generics, etc.
+        let name = if let parensIndex = signature.firstIndex(of: "(") {
+            String(signature.prefix(upTo: parensIndex))
+        } else {
+            signature
+        }
+
+        let whereClause = if let clause = function.genericWhereClause {
+            " \(clause.description)"
+        } else {
+            ""
+        }
+
         let matcherComment = parameters.isEmpty ? "" : "accepts argument matchers for each parameter and "
         return """
         /// A duplicate protocol implementation which \(matcherComment)returns a verifier.
-        \(staticKeyword)func \(name)(\(paramMatchers)) -> MethodVerifier<any \(protocolName), \(returnType)> {
-            MethodVerifier<any \(protocolName), \(returnType)>(mock: mock, signature: "\(function.memberSignature)"\(paramCapture))
+        \(staticKeyword)func \(name)(\(paramMatchers)) -> MethodVerifier<any \(protocolName), \(returnType)>\(whereClause) {
+            MethodVerifier<any \(protocolName), \(returnType)>(mock: mock, signature: "\(signature)"\(paramCapture))
         }
         """
     }
@@ -591,10 +628,23 @@ public struct MockableMacro: PeerMacro {
         let isStatic = subscriptDecl.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
         let staticKeyword = isStatic ? "static " : ""
 
+        let signature = subscriptDecl.memberSignature // includes generics, etc.
+        let name = if let parensIndex = signature.firstIndex(of: "(") {
+            String(signature.prefix(upTo: parensIndex))
+        } else {
+            signature
+        }
+
+        let whereClause = if let clause = subscriptDecl.genericWhereClause {
+            " \(clause.description)"
+        } else {
+            ""
+        }
+
         return """
         /// A duplicate protocol implementation which accepts argument matchers for each parameter and returns a verifier.
-        \(staticKeyword)subscript(\(paramMatchers)) -> \(verifierType) {
-            \(verifierType)(mock: mock, signature: "\(subscriptDecl.memberSignature)"\(paramCapture))
+        \(staticKeyword)\(name)(\(paramMatchers)) -> \(verifierType)\(whereClause) {
+            \(verifierType)(mock: mock, signature: "\(signature)"\(paramCapture))
         }
         """
     }

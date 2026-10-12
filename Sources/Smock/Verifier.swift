@@ -94,8 +94,13 @@ public class MethodVerifier<T, R>: Verifier<T> {
     }
 
     /// Asserts that the method was invoked in accordance with the given ``Verification``.
+    ///
+    ///  - parameters:
+    ///    - returning: The return type of the method. This can be supplied to clarify a generic return type for the compiler.
+    ///    - verification: The type of verification to perform.
     @discardableResult
     public func wasCalled(
+        returning _: R.Type = R.self,
         _ verification: Verification = .atLeast(1),
         filePath: StaticString = #filePath,
         line: UInt = #line
@@ -116,8 +121,13 @@ public class PropertyVerifier<T, R: Sendable>: Verifier<T> {
     }
 
     /// Asserts that the property was read in accordance with the given ``Verification``.
+    ///
+    ///  - parameters:
+    ///    - type: The property type. This can be supplied to clarify a generic type for the compiler.
+    ///    - verification: The type of verification to perform.
     @discardableResult
     public func wasRead(
+        type _: R.Type = R.self,
         _ verification: Verification = .atLeast(1),
         filePath: StaticString = #filePath,
         line: UInt = #line
@@ -129,6 +139,10 @@ public class PropertyVerifier<T, R: Sendable>: Verifier<T> {
 /// A ``Verifier`` for *writable* properties which matches setter values to a provided ``ArgumentMatcher``.
 public class WritablePropertyVerifier<T, R: Sendable>: PropertyVerifier<T, R> {
     /// Asserts that the property was set to the given `value` in accordance with the provided ``Verification``.
+    ///
+    ///  - parameters:
+    ///    - value: A matcher for the expected value.
+    ///    - verification: The type of verification to perform.
     @discardableResult
     public func wasSet(
         to value: ArgumentMatcher<R> = .any(),
