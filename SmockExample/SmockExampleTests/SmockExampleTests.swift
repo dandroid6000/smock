@@ -15,7 +15,7 @@ struct SmockExampleTests {
 
     @Test
     func example() async throws {
-        when(mockService).name.thenReturn("Foo")
+        when(mockService).name.then(return: "Foo")
         when(mockService).doSomething().thenReturn()
 
         let name = mockService.name

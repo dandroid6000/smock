@@ -38,7 +38,7 @@ public class ReturnBuilder<T, R: Sendable>: @unchecked Sendable {
 
     /// Stubs the given `value` to be returned when the associated member is called.
     @discardableResult
-    public func thenReturn(_ value: R) -> Self {
+    public func then(return value: R) -> Self {
         print("Will return \(value) for \(callDescription)")
         stubByType({ _ in value })
         return self
@@ -74,7 +74,7 @@ public extension ReturnBuilder where R == Void {
     /// A convenience for `Void` return types to simply complete when the associated member is invoked.
     @discardableResult
     func thenReturn() -> Self {
-        thenReturn(())
+        then(return: ())
     }
 }
 
@@ -103,7 +103,7 @@ public final class AsyncReturnBuilder<T, R: Sendable>: ReturnBuilder<T, R>, @unc
 public class ThrowingReturnBuilder<T, R: Sendable>: ReturnBuilder<T, R>, @unchecked Sendable {
     /// Stubs the given `error` to be thrown then the associated member is called.
     @discardableResult
-    public func thenThrow(_ error: Error) -> Self {
+    public func then(throw error: Error) -> Self {
         print("Will throw `\(error)` for \(callDescription)")
         stubByType({ _ in throw error })
         return self

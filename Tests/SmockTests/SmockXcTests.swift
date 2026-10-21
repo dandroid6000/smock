@@ -20,7 +20,7 @@ class SmockXcTests: XCTestCase {
             verify(mock).readOnlyProperty.wasRead()
         }
 
-        when(mock).readOnlyProperty.thenReturn("value")
+        when(mock).readOnlyProperty.then(return: "value")
 
         let value = mock.readOnlyProperty
 

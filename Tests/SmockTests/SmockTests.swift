@@ -75,7 +75,7 @@ struct SmockTests {
         // Arrange
         let value = "one"
 
-        when(mock).readOnlyProperty.thenReturn(value)
+        when(mock).readOnlyProperty.then(return: value)
 
         // Act
         let read1 = mock.readOnlyProperty
@@ -93,8 +93,8 @@ struct SmockTests {
         let value2 = "two"
 
         when(mock).readOnlyProperty
-            .thenReturn(value1)
-            .thenReturn(value2)
+            .then(return: value1)
+            .then(return: value2)
 
         // Act
         let read1 = mock.readOnlyProperty
@@ -130,8 +130,8 @@ struct SmockTests {
     func `mock should track overloaded methods separately`() async throws {
         // Arrange
         when(mock).overloadedReturn().thenReturn()
-        when(mock).overloadedReturn().thenReturn("value")
-        when(mock).overloadedReturn().thenReturn(1)
+        when(mock).overloadedReturn().then(return: "value")
+        when(mock).overloadedReturn().then(return: 1)
 
         // Act
         mock.overloadedReturn() as Void
@@ -184,11 +184,11 @@ struct SmockTests {
     func `mock should throw when stubbed`() async throws {
         // Arrange
         when(mock).throwingProperty
-            .thenThrow(TestError.expected)
+            .then(throw: TestError.expected)
             .then { throw TestError.another }
         when(mock).throwingMethod()
             .thenReturn()
-            .thenThrow(TestError.expected)
+            .then(throw: TestError.expected)
             .then { throw TestError.another }
             .then { /* no-op */ }
 
@@ -216,7 +216,7 @@ struct SmockTests {
         // Arrange
         let clock = ContinuousClock()
         when(mock).asyncProperty
-            .thenReturn(0)
+            .then(return: 0)
             .then {
                 // Return the duration of execution (>= 1)
                 let start = clock.now
@@ -225,14 +225,14 @@ struct SmockTests {
                 return Int(duration.components.seconds)
             }
         when(mock).asyncThrowingProperty
-            .thenThrow(TestError.expected)
+            .then(throw: TestError.expected)
             .then { throw TestError.another }
             .then {
                 try await Task.sleep(for: .milliseconds(100)) // CAN THROW HERE
                 return "awaited"
             }
         when(mock).asyncThrowingMethod()
-            .thenThrow(TestError.expected)
+            .then(throw: TestError.expected)
 
         // Act
         let value = await mock.asyncProperty
@@ -261,7 +261,7 @@ struct SmockTests {
     func `reset should clear stubbed data`() async throws {
         await #expect(processExitsWith: .failure) {
             let mock = ExampleServiceMock()
-            when(mock).readOnlyProperty.thenReturn("value")
+            when(mock).readOnlyProperty.then(return: "value")
 
             let value = mock.readOnlyProperty
             verify(mock).readOnlyProperty.wasRead()
@@ -313,7 +313,7 @@ struct SmockTests {
     func `mock should fail verification if property is not set`() {
         withKnownIssue {
             // Arrange
-            when(mock).readWriteProperty.thenReturn("value")
+            when(mock).readWriteProperty.then(return: "value")
 
             // Act - read, but no write
             _ = mock.readWriteProperty
@@ -332,7 +332,7 @@ struct SmockTests {
     @Test
     func `mock should track and verify property reads`() async throws {
         // Arrange
-        when(mock).readOnlyProperty.thenReturn("value")
+        when(mock).readOnlyProperty.then(return: "value")
 
         // Act
         _ = mock.readOnlyProperty
@@ -440,8 +440,8 @@ struct SmockTests {
     func `mock should verify order of interactions`() async throws {
         // Arrange
         when(mock).voidMethod().thenReturn()
-        when(mock).readOnlyProperty.thenReturn("value")
-        when(mock).optionalMethod().thenReturn(nil)
+        when(mock).readOnlyProperty.then(return: "value")
+        when(mock).optionalMethod().then(return: nil)
 
         // Act
         _ = mock.optionalMethod() // 1
@@ -476,8 +476,8 @@ struct SmockTests {
     func `inOrder verification should support multiple mocks`() async throws {
         // Arrange
         let anotherMock = AnotherServiceMock()
-        when(anotherMock).anotherProperty.thenReturn(1)
-        when(mock).readOnlyProperty.thenReturn("value")
+        when(anotherMock).anotherProperty.then(return: 1)
+        when(mock).readOnlyProperty.then(return: "value")
 
         // Act
         _ = mock.readOnlyProperty

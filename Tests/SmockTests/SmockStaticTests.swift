@@ -74,8 +74,8 @@ class SmockStaticTests {
     @Test
     func `static mock should stub and return values`() async throws {
         // Arrange
-        when(ExampleServiceMock.self).staticProperty.thenReturn(1)
-        when(ExampleServiceMock.self).staticReturningMethod().thenReturn(2)
+        when(ExampleServiceMock.self).staticProperty.then(return: 1)
+        when(ExampleServiceMock.self).staticReturningMethod().then(return: 2)
 
         // Act
         let read1 = ExampleServiceMock.staticProperty
@@ -110,7 +110,7 @@ class SmockStaticTests {
     @Test
     func `reset should clear static stubbed data`() async throws {
         await #expect(processExitsWith: .failure) {
-            when(ExampleServiceMock.self).staticProperty.thenReturn(1)
+            when(ExampleServiceMock.self).staticProperty.then(return: 1)
 
             let value = ExampleServiceMock.staticProperty
             verify(ExampleServiceMock.self).staticProperty.wasRead()
@@ -128,7 +128,7 @@ class SmockStaticTests {
     @Test
     func `static mock should track property reads`() {
         // Arrange
-        when(ExampleServiceMock.self).staticProperty.thenReturn(1)
+        when(ExampleServiceMock.self).staticProperty.then(return: 1)
 
         // Act
         ExampleServiceMock.staticProperty = 2 // write but no read
@@ -145,7 +145,7 @@ class SmockStaticTests {
     @Test
     func `static mock should track property writes`() {
         // Arrange
-        when(ExampleServiceMock.self).staticProperty.thenReturn(1)
+        when(ExampleServiceMock.self).staticProperty.then(return: 1)
 
         // Act
         _ = ExampleServiceMock.staticProperty // read but no write

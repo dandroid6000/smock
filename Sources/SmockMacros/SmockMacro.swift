@@ -188,7 +188,9 @@ public struct MockableMacro: PeerMacro {
         let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
         let staticKeyword = isStatic ? "static " : ""
 
-        let isThrowing = function.signature.effectSpecifiers?.throwsClause != nil
+        // Note: Match `throws` explicitly (not `rethrows`) since the compiler can't track a throwing closure parameter
+        // through the stubbing process
+        let isThrowing = function.signature.effectSpecifiers?.throwsClause?.throwsSpecifier.tokenKind == .keyword(.throws)
         let tryKeyword = isThrowing ? "try" : "try!"
 
         let isAsync = function.signature.effectSpecifiers?.asyncSpecifier != nil
@@ -373,7 +375,9 @@ public struct MockableMacro: PeerMacro {
 
         // Determine builder type (e.g. async/throwing)
         var builderType = "ReturnBuilder<any \(protocolName), \(returnType)>"
-        if function.signature.effectSpecifiers?.throwsClause != nil {
+        // Note: Match `throws` explicitly (not `rethrows`) since the compiler can't track a throwing closure parameter
+        // through the stubbing process
+        if function.signature.effectSpecifiers?.throwsClause?.throwsSpecifier.tokenKind == .keyword(.throws) {
             builderType = "Throwing" + builderType
         }
         if function.signature.effectSpecifiers?.asyncSpecifier != nil {
@@ -654,15 +658,23 @@ public struct MockableMacro: PeerMacro {
 
 private extension FunctionDeclSyntax {
     var memberSignature: String {
-        self.with(\.funcKeyword, "") // i.e. func
+        // Remove `rethrows` since the compiler can't track a throwing closure parameter through the stubbing process
+        var effectSpecifiers = signature.effectSpecifiers
+        if effectSpecifiers?.throwsClause?.throwsSpecifier.tokenKind == .keyword(.rethrows) {
+            effectSpecifiers = effectSpecifiers?.with(\.throwsClause, nil)
+        }
+        return self.with(\.attributes, []) // e.g. @MainActor
             .with(\.modifiers, []) // e.g. static
+            .with(\.funcKeyword, "") // i.e. func
+            .with(\.signature, signature.with(\.effectSpecifiers, effectSpecifiers))
             .signatureDescription(removeLineBreaks: true)
     }
 }
 
 private extension SubscriptDeclSyntax {
     var memberSignature: String {
-        self.with(\.modifiers, []) // e.g. static
+        self.with(\.attributes, []) // e.g. @MainActor
+            .with(\.modifiers, []) // e.g. static
             .with(\.accessorBlock, nil) // e.g. { get set }
             .signatureDescription(removeLineBreaks: true)
     }
@@ -687,8 +699,8 @@ extension TypeSyntax {
         }
 
         return attributedType
-        .with(\.specifiers, []) // inout, isolated, consuming, borrowing, etc.
-        .with(\.attributes, filteredElements)
-        .trimmedDescription
+            .with(\.specifiers, []) // inout, isolated, consuming, borrowing, etc.
+            .with(\.attributes, filteredElements)
+            .trimmedDescription
     }
 }
