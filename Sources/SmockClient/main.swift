@@ -5,21 +5,19 @@ enum AnError: Error {
     case error
 }
 
-struct Baz: Equatable {
-    let a: Int
+struct NonSendable: Equatable, Sendable {}
+
+/// Wrapper which allows 'sending' mutable state across isolation context
+final class SendableBox<Value>: @unchecked Sendable {
+    var value: Value
+    init(_ value: Value) { self.value = value }
 }
 
 @Mockable
 protocol Foo {
-    associatedtype Baz
-//    static func noArgs() throws
-//    func noArgs() throws
-//    func twoArgs(_ a: Int, _ b: Int) -> Int
-//    func twoArgs(_ a: Int, _ b: Int)
-//    func twoArgs(_ a: Int, _ b: String)
-
-//    func generics<T>(a: T)
-//    func generics<T>(a: T) where T: Equatable
+    static var foo: Int { get }
+    func executeTask(_ task: @Sendable @escaping () throws -> Void) rethrows
+//    static func updateUI() -> Int
 }
 
 @Mockable
@@ -32,7 +30,7 @@ protocol Bar {
     var one: Int { get async throws }
     var two: Int { get set }
 
-//    subscript(index: Int) -> String { get set }
+    subscript(index: Int) -> String { get set }
     subscript(key: String, defaultValue value: Int) -> Int { get set }
 
     func three()
@@ -40,73 +38,28 @@ protocol Bar {
     func five(_ a: Int, _ b: String)
 }
 
-let mock = BarMock(relaxed: false)
+let mock = FooMock()
 
-when(BarMock.self).minus1.thenReturn(5)
+let box = SendableBox(false)
 
-when(mock).zero.thenReturn(nil)
-when(mock).one.thenReturn(1)
-when(mock).two.then {
-    print("INVOKED `.two`, args isEmpty: \($0.isEmpty)")
-    return 2
+when(mock).executeTask(.any()).then { args in
+    let closure: @Sendable () throws -> Void = try! args[0]
+    do {
+        try closure()
+    } catch {
+        print("CAUGHT: \(error)")
+    }
 }
 
-when(mock)[.any(), defaultValue: .any()].then { try! $0.getInt(at: 1) }
-
-//when(mock).three().thenReturn()
-when(mock).four(a: 3).then {
-    print("INVOKED `.four` with \(try $0.getInt(at: 0))")
+mock.executeTask {
+    print("!!! EXECUTING")
     throw AnError.error
 }
-when(mock).five(.any(), .any()).then { args in
-    print("INVOKED `.five` with \(args)")
-}
-//when(mock).four(.equalTo(2)).thenReturn(4)
-//when(mock).four(.equalTo(3)).thenReturn(5)
 
-_ = BarMock.minus1
+verify(mock).executeTask(.any()).wasCalled()
 
-SmockStatic[Bar.self].relaxed = true
-BarMock.minus3() // no stubs
-
-_ = mock.zero
-_ = try await mock.one
-_ = mock.two
-mock.two = 1
-//_ = mock.one
-//mock.three()
-//_ = mock.three()
-//_ = try await mock.four(2)
-_ = try await mock.one
-do {
-    _ = try await mock.four(a: 3)
-} catch {
-    print("Caught error for .four(3): \(error)")
-}
-mock.five(5, "a")
-
-_ = mock["2", defaultValue: 2]
-mock["2", defaultValue: 2] = 3
-
-//verifyNoInteractions(mock)
-verifyNoInteractions(BarMock.self)
-
-verify(mock).four(a: .any()).wasCalled(.never)
-verify(BarMock.self).minus1.wasRead(.exactly(1))
-
-verify(mock)["2", defaultValue: 2].wasSet(to: 3)
-
-verifyNoMoreInteractions(BarMock.self)
-
-inOrder {
-    verify(mock).one.wasRead()
-//    verify(mock).two.wasRead()
-    verify(mock).two.wasSet(to: 1)
-    verify(mock).three().wasCalled(.never)
-//    verify(mock)[2].wasRead()
-//    verify(mock).one.wasRead()
-    verify(mock).four(a: 3).wasCalled(.exactly(1))
-    verify(mock).one.wasRead() // out of order
-}
-
-//verifyNoMoreInteractions(mock)
+//when(mock).updateUI().then(return: 2)
+//
+//_ = mock.updateUI()
+//
+//verify(mock).updateUI().wasCalled()

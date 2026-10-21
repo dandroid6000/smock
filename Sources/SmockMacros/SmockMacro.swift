@@ -185,24 +185,15 @@ public struct MockableMacro: PeerMacro {
 
     private static func mockMethod(_ function: FunctionDeclSyntax) -> String {
         // Extract function details
-        let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
+        let staticKeyword = function.isStatic ? "static " : ""
+        let tryKeyword = function.isThrowing ? "try" : "try!"
+        let awaitKeyword = function.isAsync ? " await" : ""
 
-        // Note: Match `throws` explicitly (not `rethrows`) since the compiler can't track a throwing closure parameter
-        // through the stubbing process
-        let isThrowing = function.signature.effectSpecifiers?.throwsClause?.throwsSpecifier.tokenKind == .keyword(.throws)
-        let tryKeyword = isThrowing ? "try" : "try!"
-
-        let isAsync = function.signature.effectSpecifiers?.asyncSpecifier != nil
-        let awaitKeyword = isAsync ? " await" : ""
-
-        let parameters = function.signature.parameterClause.parameters
-        let paramNames = parameters.map { parameter in
+        // Apply parameter names as values when passing to getValue
+        let paramNames = function.signature.parameterClause.parameters.map { parameter in
             parameter.secondName?.text ?? parameter.firstName.text
         }
-        let paramValues = if paramNames.isEmpty {
-            ""
-        } else {
+        let paramValues = if paramNames.isEmpty { "" } else {
             ", params: \(paramNames.joined(separator: ", "))"
         }
 
@@ -217,7 +208,7 @@ public struct MockableMacro: PeerMacro {
     }
 
     private static func mockProperty(_ property: VariableDeclSyntax) -> String {
-        // Extract bindings (e.g., var id: String)
+        // Protocols will only have 1 binding per declaration
         guard
             let binding = property.bindings.first,
             let identifier = binding.pattern.as(IdentifierPatternSyntax.self)?.identifier.text,
@@ -226,25 +217,9 @@ public struct MockableMacro: PeerMacro {
             return ""
         }
 
-        let isStatic = property.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
+        let (isThrowing, isAsync, getClause, setClause) = binding.accessorBlock.extractAll()
 
-        var isThrowing = false
-        var isAsync = false
-        var getClause = "get"
-        var setClause: String?
-        if case let .accessors(accessors) = binding.accessorBlock?.accessors {
-            // Pull full accessors, e.g.: "get async throws "
-            if let getter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.get) }) {
-                isThrowing = getter.effectSpecifiers?.throwsClause != nil
-                isAsync = getter.effectSpecifiers?.asyncSpecifier != nil
-                getClause = getter.trimmedDescription
-            }
-            if let setter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.set) }) {
-                setClause = setter.trimmedDescription
-            }
-        }
-
+        let staticKeyword = property.isStatic ? "static " : ""
         let tryKeyword = isThrowing ? "try" : "try!"
         let awaitKeyword = isAsync ? " await" : ""
 
@@ -285,11 +260,8 @@ public struct MockableMacro: PeerMacro {
     }
 
     private static func mockSubscript(_ subscriptDecl: SubscriptDeclSyntax) -> String {
-        let isStatic = subscriptDecl.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
-
-        let parameters = subscriptDecl.parameterClause.parameters
-        let paramNames = parameters.map { parameter in
+        // Apply parameter names as values when passing to getValue
+        let paramNames = subscriptDecl.parameterClause.parameters.map { parameter in
             parameter.secondName?.text ?? parameter.firstName.text
         }
         let paramValues = if paramNames.isEmpty {
@@ -298,22 +270,9 @@ public struct MockableMacro: PeerMacro {
             ", params: \(paramNames.joined(separator: ", "))"
         }
 
-        var isThrowing = false
-        var isAsync = false
-        var getClause = "get"
-        var setClause: String?
-        if case let .accessors(accessors) = subscriptDecl.accessorBlock?.accessors {
-            // Pull full accessors, e.g.: "get async throws "
-            if let getter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.get) }) {
-                isThrowing = getter.effectSpecifiers?.throwsClause != nil
-                isAsync = getter.effectSpecifiers?.asyncSpecifier != nil
-                getClause = getter.trimmedDescription
-            }
-            if let setter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.set) }) {
-                setClause = setter.trimmedDescription
-            }
-        }
+        let (isThrowing, isAsync, getClause, setClause) = subscriptDecl.accessorBlock.extractAll()
 
+        let staticKeyword = subscriptDecl.isStatic ? "static " : ""
         let tryKeyword = isThrowing ? "try" : "try!"
         let awaitKeyword = isAsync ? " await" : ""
 
@@ -375,17 +334,14 @@ public struct MockableMacro: PeerMacro {
 
         // Determine builder type (e.g. async/throwing)
         var builderType = "ReturnBuilder<any \(protocolName), \(returnType)>"
-        // Note: Match `throws` explicitly (not `rethrows`) since the compiler can't track a throwing closure parameter
-        // through the stubbing process
-        if function.signature.effectSpecifiers?.throwsClause?.throwsSpecifier.tokenKind == .keyword(.throws) {
+        if function.isThrowing {
             builderType = "Throwing" + builderType
         }
-        if function.signature.effectSpecifiers?.asyncSpecifier != nil {
+        if function.isAsync {
             builderType = "Async" + builderType
         }
 
-        let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
+        let staticKeyword = function.isStatic ? "static " : ""
 
         let signature = function.memberSignature // includes generics, etc.
         let name = if let parensIndex = signature.firstIndex(of: "(") {
@@ -418,21 +374,17 @@ public struct MockableMacro: PeerMacro {
             return ""
         }
 
+        let staticKeyword = property.isStatic ? "static " : ""
+        let (isThrowing, isAsync) = binding.accessorBlock.extractEffects()
+
         // Determine builder type (e.g. async/throwing)
         var builderType = "ReturnBuilder<any \(protocolName), \(type)>"
-        if case let .accessors(accessors) = binding.accessorBlock?.accessors,
-            let getter = accessors.first(where: {$0.accessorSpecifier.tokenKind == .keyword(.get)}) {
-
-            if getter.effectSpecifiers?.throwsClause != nil {
-                builderType = "Throwing" + builderType
-            }
-            if getter.effectSpecifiers?.asyncSpecifier != nil {
-                builderType = "Async" + builderType
-            }
+        if isThrowing {
+            builderType = "Throwing" + builderType
         }
-
-        let isStatic = property.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
+        if isAsync {
+            builderType = "Async" + builderType
+        }
 
         return """
         /// A duplicate protocol implementation which returns a stub builder.
@@ -466,13 +418,8 @@ public struct MockableMacro: PeerMacro {
             ", params: \(paramNames.joined(separator: ", "))"
         }
 
-        var isThrowing = false
-        var isAsync = false
-        if case let .accessors(accessors) = subscriptDecl.accessorBlock?.accessors,
-           let getter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.get) }) {
-            isThrowing = getter.effectSpecifiers?.throwsClause != nil
-            isAsync = getter.effectSpecifiers?.asyncSpecifier != nil
-        }
+        let staticKeyword = subscriptDecl.isStatic ? "static " : ""
+        let (isThrowing, isAsync) = subscriptDecl.accessorBlock.extractEffects()
 
         // Determine builder type (e.g. async/throwing)
         var builderType = "ReturnBuilder<any \(protocolName), \(returnType)>"
@@ -482,9 +429,6 @@ public struct MockableMacro: PeerMacro {
         if isAsync {
             builderType = "Async" + builderType
         }
-
-        let isStatic = subscriptDecl.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
 
         let signature = subscriptDecl.memberSignature // includes generics, etc.
         let name = if let parensIndex = signature.firstIndex(of: "(") {
@@ -533,8 +477,7 @@ public struct MockableMacro: PeerMacro {
             ", params: \(paramNames.joined(separator: ", "))"
         }
 
-        let isStatic = function.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
+        let staticKeyword = function.isStatic ? "static " : ""
 
         let signature = function.memberSignature // includes generics, etc.
         let name = if let parensIndex = signature.firstIndex(of: "(") {
@@ -567,21 +510,13 @@ public struct MockableMacro: PeerMacro {
             return ""
         }
 
-        let isWritable = if case let .accessors(accessors) = binding.accessorBlock?.accessors {
-            accessors.contains { $0.accessorSpecifier.tokenKind == .keyword(.set) }
-        } else {
-            false
+        // Determine verifier type (e.g. writable)
+        var verifierType = "PropertyVerifier<any \(protocolName), \(type)>"
+        if binding.accessorBlock.hasSetter {
+            verifierType = "Writable" + verifierType
         }
 
-        // Determine builder type (i.e. throwing)
-        let verifierType = if isWritable {
-            "WritablePropertyVerifier<any \(protocolName), \(type)>"
-        } else {
-            "PropertyVerifier<any \(protocolName), \(type)>"
-        }
-
-        let isStatic = property.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
+        let staticKeyword = property.isStatic ? "static " : ""
 
         return """
         /// A duplicate protocol implementation which returns a verifier.
@@ -615,22 +550,13 @@ public struct MockableMacro: PeerMacro {
             ", params: \(paramNames.joined(separator: ", "))"
         }
 
-        let isWritable = if case let .accessors(accessors) = subscriptDecl.accessorBlock?.accessors {
-            accessors.contains { $0.accessorSpecifier.tokenKind == .keyword(.set) }
-        } else {
-            false
+        // Determine verifier type (e.g. writable)
+        var verifierType = "PropertyVerifier<any \(protocolName), \(returnType)>"
+        if subscriptDecl.accessorBlock.hasSetter {
+            verifierType = "Writable" + verifierType
         }
 
-        // Determine builder type (i.e. throwing)
-        let verifierType = if isWritable {
-            "WritablePropertyVerifier<any \(protocolName), \(returnType)>"
-        } else {
-            "PropertyVerifier<any \(protocolName), \(returnType)>"
-        }
-
-
-        let isStatic = subscriptDecl.modifiers.contains { $0.name.tokenKind == .keyword(.static) }
-        let staticKeyword = isStatic ? "static " : ""
+        let staticKeyword = subscriptDecl.isStatic ? "static " : ""
 
         let signature = subscriptDecl.memberSignature // includes generics, etc.
         let name = if let parensIndex = signature.firstIndex(of: "(") {
@@ -656,7 +582,26 @@ public struct MockableMacro: PeerMacro {
 
 // MARK: - Conveniences
 
+private extension DeclSyntaxProtocol {
+    /// True if the `static` modifier is present.
+    var isStatic: Bool {
+        Syntax(self).asProtocol(WithModifiersSyntax.self)?.modifiers
+            .contains { $0.name.tokenKind == .keyword(.static) } == true
+    }
+}
+
 private extension FunctionDeclSyntax {
+    /// Matches `throws` explicitly (not `rethrows`) since the compiler can't track a throwing closure parameter through
+    /// the stubbing process.
+    var isThrowing: Bool {
+        signature.effectSpecifiers?.throwsClause?.throwsSpecifier.tokenKind == .keyword(.throws)
+    }
+
+    /// True if `asyncSpecifier` is non-nil.
+    var isAsync: Bool {
+        signature.effectSpecifiers?.asyncSpecifier != nil
+    }
+
     var memberSignature: String {
         // Remove `rethrows` since the compiler can't track a throwing closure parameter through the stubbing process
         var effectSpecifiers = signature.effectSpecifiers
@@ -677,6 +622,49 @@ private extension SubscriptDeclSyntax {
             .with(\.modifiers, []) // e.g. static
             .with(\.accessorBlock, nil) // e.g. { get set }
             .signatureDescription(removeLineBreaks: true)
+    }
+}
+
+private extension Optional<AccessorBlockSyntax> {
+    /// Indicates whether the accessor block has a setter.
+    var hasSetter: Bool {
+        if case .accessors(let accessors) = self?.accessors {
+            accessors.contains { $0.accessorSpecifier.tokenKind == .keyword(.set) }
+        } else {
+            false
+        }
+    }
+
+    /// Indicates whether the accessor block has `async` and/or `throws` on the getter.
+    func extractEffects() -> (isThrowing: Bool, isAsync: Bool) {
+        var isThrowing = false
+        var isAsync = false
+        if case .accessors(let accessors) = self?.accessors,
+           let getter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.get) }) {
+            isThrowing = getter.effectSpecifiers?.throwsClause != nil
+            isAsync = getter.effectSpecifiers?.asyncSpecifier != nil
+        }
+        return (isThrowing, isAsync)
+    }
+
+    /// Indicates whether the accessor block has `async` and/or `throws` on the getter and returns the full get clause and optional set clause.
+    func extractAll() -> (isThrowing: Bool, isAsync: Bool, getClause: String, setClause: String?) {
+        var isThrowing = false
+        var isAsync = false
+        var getClause = "get"
+        var setClause: String?
+        if case .accessors(let accessors) = self?.accessors {
+            // Pull full accessors, e.g.: "get async throws "
+            if let getter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.get) }) {
+                isThrowing = getter.effectSpecifiers?.throwsClause != nil
+                isAsync = getter.effectSpecifiers?.asyncSpecifier != nil
+                getClause = getter.trimmedDescription
+            }
+            if let setter = accessors.first(where: { $0.accessorSpecifier.tokenKind == .keyword(.set) }) {
+                setClause = setter.trimmedDescription
+            }
+        }
+        return (isThrowing, isAsync, getClause, setClause)
     }
 }
 
