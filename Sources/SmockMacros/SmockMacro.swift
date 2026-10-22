@@ -101,9 +101,7 @@ public struct MockableMacro: PeerMacro {
         final nonisolated class \(mockClassName)\(genericsWithInheritance): Smock<any \(protocolName)>, \(protocolName), @unchecked Sendable {
             required public init(relaxed: Bool = false) {
                 super.init(relaxed: relaxed)
-            }
-                
-            \(mocks.joined(separator: "\n\n"))
+            }\(mocks.joined())
         }
         #endif
         """
@@ -119,9 +117,7 @@ public struct MockableMacro: PeerMacro {
             
             init(mock: Smock<any \(protocolName)>) {
                 self.mock = mock
-            }
-                
-            \(stubbers.joined(separator: "\n\n"))
+            }\(stubbers.joined())
         }
         #endif
         """
@@ -137,9 +133,7 @@ public struct MockableMacro: PeerMacro {
             
             init(mock: Smock<any \(protocolName)>) {
                 self.mock = mock
-            }
-        
-            \(verifiers.joined(separator: "\n\n"))
+            }\(verifiers.joined())
         }
         #endif
         """
@@ -199,12 +193,14 @@ public struct MockableMacro: PeerMacro {
 
         let signature = function.memberSignature // no line breaks
         return """
+    
+    
         /// A mocked protocol implementation which tracks calls and retrieves stubs.
         nonisolated \(staticKeyword)func \(signature) {
             trackCall("\(signature)"\(paramValues))
             return \(tryKeyword)\(awaitKeyword) getValue(for: "\(signature)"\(paramValues))
         }
-        """
+    """
     }
 
     private static func mockProperty(_ property: VariableDeclSyntax) -> String {
@@ -224,39 +220,43 @@ public struct MockableMacro: PeerMacro {
         let awaitKeyword = isAsync ? " await" : ""
 
         let getter = """
+    
             \(getClause) {
                 trackCall("\(identifier)")
                 return \(tryKeyword)\(awaitKeyword) getValue(for: "\(identifier)")
             }
-        """
+    """
 
         let setter = if let setClause {
             """
             
-                \(setClause) {
-                    trackCall("\(identifier)", params: newValue)
-                }
-            """
+            \(setClause) {
+                trackCall("\(identifier)", params: newValue)
+            }
+    """
         } else {
             ""
         }
 
         return """
+    
+    
         /// A mocked protocol implementation which tracks calls and retrieves stubs.
-        nonisolated \(staticKeyword)var \(identifier): \(type) {
-        \(getter)\(setter)
+        nonisolated \(staticKeyword)var \(identifier): \(type) {\(getter)\(setter)
         }
-        """
+    """
     }
 
     private static func mockInit(_ initializer: InitializerDeclSyntax) -> String {
         let signature = initializer.trimmedDescription
         return """
+    
+    
         /// Protocol-required initializer. Generally should not be used in favor of `init(relaxed:)`.
         convenience \(signature) {
             self.init(relaxed: false)
         }
-        """
+    """
     }
 
     private static func mockSubscript(_ subscriptDecl: SubscriptDeclSyntax) -> String {
@@ -279,31 +279,33 @@ public struct MockableMacro: PeerMacro {
         let signature = subscriptDecl.memberSignature // no line breaks
 
         let getter = """
+    
             \(getClause) {
                 trackCall("\(signature)"\(paramValues))
                 return \(tryKeyword)\(awaitKeyword) getValue(for: "\(signature)"\(paramValues))
             }
-        """
+    """
 
         // NOTE: newValue is appended to the subscript params for matching (see Verifier)
         let setter = if let setClause {
             """
             
-                \(setClause) {
-                    trackCall("\(signature)"\(paramValues), newValue)
-                }
-            """
+            \(setClause) {
+                trackCall("\(signature)"\(paramValues), newValue)
+            }
+    """
         } else {
             ""
         }
 
 
         return """
+    
+    
         /// A mocked protocol implementation which tracks calls and retrieves stubs.
-        nonisolated \(staticKeyword)\(signature) {
-        \(getter)\(setter)
+        nonisolated \(staticKeyword)\(signature) {\(getter)\(setter)
         }
-        """
+    """
     }
 
     // MARK: Stubber members
@@ -358,11 +360,13 @@ public struct MockableMacro: PeerMacro {
 
         let matcherComment = parameters.isEmpty ? "" : "accepts argument matchers for each parameter and "
         return """
+    
+    
         /// A duplicate protocol implementation which \(matcherComment)returns a stub builder.
         \(staticKeyword)func \(name)(\(paramMatchers)) -> \(builderType)\(whereClause) {
             \(builderType)(mock: mock, signature: "\(signature)"\(paramCapture))
         }
-        """
+    """
     }
 
     private static func stubProperty(_ property: VariableDeclSyntax, protocolName: String) -> String {
@@ -387,11 +391,13 @@ public struct MockableMacro: PeerMacro {
         }
 
         return """
+    
+    
         /// A duplicate protocol implementation which returns a stub builder.
         \(staticKeyword)var \(identifier): \(builderType) {
             \(builderType)(mock: mock, signature: "\(identifier)")
         }
-        """
+    """
     }
 
     private static func stubSubscript(_ subscriptDecl: SubscriptDeclSyntax, protocolName: String) -> String {
@@ -444,11 +450,13 @@ public struct MockableMacro: PeerMacro {
         }
 
         return """
+        
+        
         /// A duplicate protocol implementation which accepts argument matchers for each parameter and returns a stub builder.
         \(staticKeyword)\(name)(\(paramMatchers)) -> \(builderType)\(whereClause) {
             \(builderType)(mock: mock, signature: "\(signature)"\(paramCapture))
         }
-        """
+    """
     }
 
     // MARK: Verifier members
@@ -494,11 +502,13 @@ public struct MockableMacro: PeerMacro {
 
         let matcherComment = parameters.isEmpty ? "" : "accepts argument matchers for each parameter and "
         return """
+        
+        
         /// A duplicate protocol implementation which \(matcherComment)returns a verifier.
         \(staticKeyword)func \(name)(\(paramMatchers)) -> MethodVerifier<any \(protocolName), \(returnType)>\(whereClause) {
             MethodVerifier<any \(protocolName), \(returnType)>(mock: mock, signature: "\(signature)"\(paramCapture))
         }
-        """
+    """
     }
 
     private static func verifyProperty(_ property: VariableDeclSyntax, protocolName: String) -> String {
@@ -519,11 +529,13 @@ public struct MockableMacro: PeerMacro {
         let staticKeyword = property.isStatic ? "static " : ""
 
         return """
+        
+        
         /// A duplicate protocol implementation which returns a verifier.
         \(staticKeyword)var \(identifier): \(verifierType) {
             \(verifierType)(mock: mock, signature: "\(identifier)")
         }
-        """
+    """
     }
 
     private static func verifySubscript(_ subscriptDecl: SubscriptDeclSyntax, protocolName: String) -> String {
@@ -572,11 +584,13 @@ public struct MockableMacro: PeerMacro {
         }
 
         return """
+        
+        
         /// A duplicate protocol implementation which accepts argument matchers for each parameter and returns a verifier.
         \(staticKeyword)\(name)(\(paramMatchers)) -> \(verifierType)\(whereClause) {
             \(verifierType)(mock: mock, signature: "\(signature)"\(paramCapture))
         }
-        """
+    """
     }
 }
 
