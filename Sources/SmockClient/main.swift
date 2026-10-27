@@ -5,12 +5,14 @@ enum AnError: Error {
     case error
 }
 
-struct NonSendable: Equatable, Sendable {}
-
 /// Wrapper which allows 'sending' mutable state across isolation context
 final class SendableBox<Value>: @unchecked Sendable {
     var value: Value
     init(_ value: Value) { self.value = value }
+}
+
+class NonSendable {
+    var x = 0 // mutable state is non-sendable
 }
 
 @Mockable
