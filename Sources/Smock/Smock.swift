@@ -29,7 +29,8 @@ open class Smock<T>: @unchecked Sendable {
     /// Generic type is needed to generate type-specific `when` methods that instantiate the correct stubber
     let mockedType: T.Type = T.self
 
-    fileprivate let metadata = Mutex<[String: MemberMetadata]>([:])
+    /// Exposed for testing
+    internal let metadata = Mutex<[String: MemberMetadata]>([:])
 
     private var staticType: String { isStatic ? "\(T.self)" : "" }
 

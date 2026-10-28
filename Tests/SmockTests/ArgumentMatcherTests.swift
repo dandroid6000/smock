@@ -11,9 +11,9 @@ import Testing
 
 struct ArgumentMatcherTests {
     @Test
-    func `any matcher should match any value of the same type`() async throws {
+    func `any(_) matcher should match any value of the same type`() async throws {
         // Arrange
-        let intMatcher = ArgumentMatcher<Int>.any()
+        let intMatcher: ArgumentMatcher<Int> = .any()
         let stringMatcher = ArgumentMatcher.any(String.self)
         let customMatcher = ArgumentMatcher.any(CustomClass.self)
 
@@ -48,7 +48,7 @@ struct ArgumentMatcherTests {
     }
 
     @Test
-    func `equalTo matcher should match Equatable values`() async throws {
+    func `equalTo(_) matcher should match Equatable values`() async throws {
         let equalToInt = ArgumentMatcher.equalTo(1)
         #expect(equalToInt.matches(1))
         #expect(!equalToInt.matches(2))
@@ -61,10 +61,10 @@ struct ArgumentMatcherTests {
     }
 
     @Test
-    func `equalTo matcher should fall back to reference identity for non-Equatable types`() async throws {
+    func `equalTo(_) matcher should fall back to reference identity for non-Equatable types`() async throws {
         let instance1 = CustomClass(a: "one")
         let instance1b = instance1 // reference copy
-        let instance2 = CustomClass(a: "one") // matching value for a
+        let instance2 = CustomClass(a: "one") // equal but not identical
 
         let equalToInstance1 = ArgumentMatcher.equalTo(instance1)
         #expect(equalToInstance1.matches(instance1b))

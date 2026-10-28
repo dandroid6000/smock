@@ -93,5 +93,10 @@ final class MemberMetadata: Sendable {
     func unverifiedCalls() -> [Call] {
         _calls.withLock { $0.filter { !$0.isVerified }  }
     }
+
+    /// For testing
+    func allStubs() -> [AnyStub] {
+        _stubs.withLock { $0 }
+    }
 }
 #endif

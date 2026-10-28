@@ -6,6 +6,7 @@
 //
 
 import Smock
+import Synchronization
 
 @Mockable
 protocol ExampleService: AnyObject {
@@ -22,11 +23,19 @@ protocol ExampleService: AnyObject {
     var throwingProperty: String { get throws }
     var asyncThrowingProperty: String { get async throws }
 
-    func voidMethod() // This comment should get stripped
+    subscript(readOnly: Int) -> String { get }
+    subscript(readWrite: String) -> Int { get set }
+
+    func voidMethod()
     func returningMethod() -> Int
     func optionalMethod() -> Int?
     func throwingMethod() throws
     func asyncThrowingMethod() async throws
+    func rethrowingMethod(task: @Sendable @escaping () throws -> Void) rethrows
+
+    func inoutMethod(_ mutable: inout Int)
+    func genericMethod<T: Sendable>(param: T)
+    func constrainedMethod<T: Sendable>(param: T) where T: Equatable
 
     func overloadedReturn()
     func overloadedReturn() -> String
@@ -35,12 +44,21 @@ protocol ExampleService: AnyObject {
     func overloadedParam(param: String)
     func overloadedParam(param: Int)
 
-    func twoArgMethod( // Multi-line declarations are supported, even with comments
+    func twoArgMethod(
         _ arg1: String,
         _ arg2: Int
     )
 
     func variadic(_ args: Int...)
+}
+
+@Mockable
+protocol GenericService {
+    associatedtype Param: Equatable
+    associatedtype Return
+
+    var associatedProperty: Return { get }
+    func associatedMethod(param: Param) -> Return
 }
 
 @Mockable
@@ -54,7 +72,15 @@ enum TestError: Error {
 }
 
 /// Wrapper which allows 'sending' mutable state across isolation context
-final class SendableBox<Value>: @unchecked Sendable {
-    var value: Value
-    init(_ value: Value) { self.value = value }
+final class SendableBox<Value: Sendable>: Sendable {
+    private let _value: Mutex<Value>
+    var value: Value {
+        get { _value.withLock { $0 } }
+        set { _value.withLock { $0 = newValue } }
+    }
+    init(_ initialValue: Value) { self._value = Mutex(initialValue) }
+
+    func update(to value: Value) async {
+        self.value = value
+    }
 }
