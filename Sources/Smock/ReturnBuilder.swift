@@ -10,21 +10,22 @@
 // Note: Class is non-final, so cannot directly conform to Sendable
 // - Applying @unchecked and using immutable values to ensure thread safety
 public class ReturnBuilder<T, R: Sendable>: @unchecked Sendable {
-    fileprivate let mock: Smock<T>
-    fileprivate let signature: String
-    fileprivate let params: [AnyArgumentMatcher]
-
-    // Used for logging
-    fileprivate var callDescription: String {
-        let staticType = mock.isStatic ? "\(T.self)" : ""
-        return "\(staticType)\(Call.description(for: signature, params: params))"
-    }
+    let mock: Smock<T>
+    let signature: String
+    let stubGroupId: Int
+    fileprivate let callDescription: String
 
     /// Configures the builder to stub the provided `mock` instance.
     internal init(mock: Smock<T>, signature: String, params: [AnyArgumentMatcher]) {
         self.mock = mock
         self.signature = signature
-        self.params = params
+
+        // Create a new stub group for this builder
+        self.stubGroupId = mock.createStubGroup(for: signature, matchers: params)
+
+        // Track the call description for loggin purposes
+        let staticType = mock.isStatic ? "\(T.self)" : ""
+        self.callDescription = "\(staticType)\(Call.description(for: signature, params: params))"
     }
 
     /// Creates a new builder for the given mock, member signature, and argument matchers.
@@ -63,9 +64,9 @@ public class ReturnBuilder<T, R: Sendable>: @unchecked Sendable {
     /// Invokes the correct stub method (async vs sync) by class type
     fileprivate func stubByType(_ answer: @Sendable @escaping (Args) -> R) {
         if self is AsyncReturnBuilder<T, R> {
-            mock.stubAsyncProducer(answer, for: signature, params: params)
+            mock.stubAsyncProducer(answer, for: signature, stubGroupId: stubGroupId)
         } else {
-            mock.stubProducer(answer, for: signature, params: params)
+            mock.stubProducer(answer, for: signature, stubGroupId: stubGroupId)
         }
     }
 }
@@ -85,7 +86,7 @@ public final class AsyncReturnBuilder<T, R: Sendable>: ReturnBuilder<T, R>, @unc
     @discardableResult
     public func then(_ answer: @Sendable @escaping (Args) async -> R) -> Self {
         print("Will invoke answer() for \(callDescription)")
-        mock.stubAsyncProducer(answer, for: signature, params: params)
+        mock.stubAsyncProducer(answer, for: signature, stubGroupId: stubGroupId)
         return self
     }
 
@@ -93,7 +94,7 @@ public final class AsyncReturnBuilder<T, R: Sendable>: ReturnBuilder<T, R>, @unc
     @discardableResult
     public func then(_ answer: @Sendable @escaping () async -> R) -> Self {
         print("Will invoke answer() for \(callDescription)")
-        mock.stubAsyncProducer({ _ in await answer() }, for: signature, params: params)
+        mock.stubAsyncProducer({ _ in await answer() }, for: signature, stubGroupId: stubGroupId)
         return self
     }
 }
@@ -128,9 +129,9 @@ public class ThrowingReturnBuilder<T, R: Sendable>: ReturnBuilder<T, R>, @unchec
     /// Invokes the correct stub method (async vs sync) by class type (overridden to support throwing closures)
     fileprivate override func stubByType(_ answer: @Sendable @escaping (Args) throws -> R) {
         if self is AsyncThrowingReturnBuilder<T, R> {
-            mock.stubAsyncProducer(answer, for: signature, params: params)
+            mock.stubAsyncProducer(answer, for: signature, stubGroupId: stubGroupId)
         } else {
-            mock.stubProducer(answer, for: signature, params: params)
+            mock.stubProducer(answer, for: signature, stubGroupId: stubGroupId)
         }
     }
 }
@@ -142,7 +143,7 @@ public final class AsyncThrowingReturnBuilder<T, R: Sendable>: ThrowingReturnBui
     @discardableResult
     public func then(_ answer: @Sendable @escaping (Args) async throws -> R) -> Self {
         print("Will invoke answer() for \(callDescription)")
-        mock.stubAsyncProducer(answer, for: signature, params: params)
+        mock.stubAsyncProducer(answer, for: signature, stubGroupId: stubGroupId)
         return self
     }
 
@@ -150,7 +151,7 @@ public final class AsyncThrowingReturnBuilder<T, R: Sendable>: ThrowingReturnBui
     @discardableResult
     public func then(_ answer: @Sendable @escaping () async throws -> R) -> Self {
         print("Will invoke answer() for \(callDescription)")
-        mock.stubAsyncProducer({ _ in try await answer() }, for: signature, params: params)
+        mock.stubAsyncProducer({ _ in try await answer() }, for: signature, stubGroupId: stubGroupId)
         return self
     }
 }

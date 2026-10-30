@@ -16,6 +16,19 @@ struct ReturnBuilderTests {
     // MARK: - ReturnBuilder
 
     @Test
+    func `new stubs include the builder's argument matchers`() async throws {
+        // Arrange
+        let signature = "test"
+        let params = [ArgumentMatcher.any(Int.self)]
+        let builder = ReturnBuilder<Any, Int>(mock: mock, signature: signature, params: params)
+
+        // Act
+        builder.then(return: 1)
+
+        // Assert
+    }
+
+    @Test
     func `then(return:) adds a stub to the mock which returns the value`() async throws {
         // Arrange
         let signature = "test"
@@ -27,23 +40,23 @@ struct ReturnBuilderTests {
         builder.then(return: expectedValue)
 
         // Assert
-        let stubs = getCurrentStubs(for: signature) as! [Stub]
+        let stubGroup = try #require(builder.getCurrentStubs())
+        let stubs = stubGroup.producers as! [Producer]
         #expect(stubs.count == 1)
 
         // Verify matchers
-        let stub = stubs[0]
-        #expect(stub.matchers.count == 1)
-        let matcher = try #require(stub.matchers.first as? ArgumentMatcher<Int>)
+        #expect(stubGroup.matchers.count == 1)
+        let matcher = stubGroup.matchers.first as! ArgumentMatcher<Int>
         guard case .any = matcher else {
-            Issue.record("Incorrect matcher type")
+            Issue.record("Incorrect matcher")
             return
         }
 
         // Verify producer (always produces the same value)
-        let value1 = try stub.producer(Args([1])) as? Int
+        let value1 = try stubs[0].callAsFunction([1]) as? Int
         #expect(value1 == expectedValue)
 
-        let value2 = try stub.producer(Args([2])) as? Int
+        let value2 = try stubs[0].callAsFunction([2]) as? Int
         #expect(value2 == expectedValue)
     }
 
@@ -51,7 +64,7 @@ struct ReturnBuilderTests {
     func `then(answer:) adds a stub to the mock which invokes the closure`() async throws {
         // Arrange
         let signature = "test"
-        let params = [ArgumentMatcher.any(Int.self)]
+        let params = [ArgumentMatcher.equalTo(4)]
         let builder = ReturnBuilder<Any, Int>(mock: mock, signature: signature, params: params)
 
         // Act (add 1 to input)
@@ -61,23 +74,23 @@ struct ReturnBuilderTests {
         }
 
         // Assert
-        let stubs = getCurrentStubs(for: signature) as! [Stub]
+        let stubGroup = try #require(builder.getCurrentStubs())
+        let stubs = stubGroup.producers as! [Producer]
         #expect(stubs.count == 1)
 
         // Verify matchers
-        let stub = stubs[0]
-        #expect(stub.matchers.count == 1)
-        let matcher = try #require(stub.matchers.first as? ArgumentMatcher<Int>)
-        guard case .any = matcher else {
-            Issue.record("Incorrect matcher type")
+        #expect(stubGroup.matchers.count == 1)
+        let matcher = stubGroup.matchers.first as! ArgumentMatcher<Int>
+        guard case .equalTo(4) = matcher else {
+            Issue.record("Incorrect matcher")
             return
         }
 
         // Verify producer (result = parameter + 1)
-        let value1 = try stub.producer(Args([1])) as? Int
+        let value1 = try stubs[0].callAsFunction([1]) as? Int
         #expect(value1 == 2)
 
-        let value2 = try stub.producer(Args([2])) as? Int
+        let value2 = try stubs[0].callAsFunction([2]) as? Int
         #expect(value2 == 3)
     }
 
@@ -92,25 +105,25 @@ struct ReturnBuilderTests {
         builder.thenReturn()
 
         // Assert
-        let stubs = getCurrentStubs(for: signature) as! [Stub]
+        let stubGroup = try #require(builder.getCurrentStubs())
+        let stubs = stubGroup.producers as! [Producer]
         #expect(stubs.count == 1)
 
         // Verify matchers
-        let stub = stubs[0]
-        #expect(stub.matchers.count == 1)
-        let matcher = try #require(stub.matchers.first as? ArgumentMatcher<Int>)
+        #expect(stubGroup.matchers.count == 1)
+        let matcher = stubGroup.matchers.first as! ArgumentMatcher<Int>
         guard case .any = matcher else {
-            Issue.record("Incorrect matcher type")
+            Issue.record("Incorrect matcher")
             return
         }
 
         // Verify producer (Void)
-        let value = try stub.producer(Args([1]))
+        let value = try stubs[0].callAsFunction([1])
         #expect(value is Void)
     }
 
     @Test
-    func `fluent stubbing adds stubs to the mock with the same signature and matchers`() async throws {
+    func `fluent stubbing adds stubs to the same stub group`() async throws {
         // Arrange (only available where R == Void)
         let signature = "test"
         let params = [ArgumentMatcher.any(Int.self)]
@@ -123,28 +136,61 @@ struct ReturnBuilderTests {
             .then(return: 3)
 
         // Assert
-        let stubs = getCurrentStubs(for: signature) as! [Stub]
+        let stubGroup = try #require(builder.getCurrentStubs())
+        let stubs = stubGroup.producers as! [Producer]
         #expect(stubs.count == 3)
 
-        // Verify matchers are all the same
-        try stubs.forEach { stub in
-            #expect(stub.matchers.count == 1)
-            let matcher = try #require(stub.matchers.first as? ArgumentMatcher<Int>)
-            guard case .any = matcher else {
-                Issue.record("Incorrect matcher type")
-                return
-            }
+        // Verify matchers
+        #expect(stubGroup.matchers.count == 1)
+        let matcher = stubGroup.matchers.first as! ArgumentMatcher<Int>
+        guard case .any = matcher else {
+            Issue.record("Incorrect matcher")
+            return
         }
 
         // Verify producers
-        let value1 = try stubs[0].producer(Args([1])) as? Int
+        let value1 = try stubs[0].callAsFunction([1]) as? Int
         #expect(value1 == 1)
 
-        let value2 = try stubs[1].producer(Args([1])) as? Int
+        let value2 = try stubs[1].callAsFunction([1]) as? Int
         #expect(value2 == 2)
 
-        let value3 = try stubs[2].producer(Args([1])) as? Int
+        let value3 = try stubs[2].callAsFunction([1]) as? Int
         #expect(value3 == 3)
+    }
+
+    @Test
+    func `multiple builders add stub groups in order`() async throws {
+        // Arrange (only available where R == Void)
+        let signature = "test"
+        let params1 = [ArgumentMatcher.any(Int.self)]
+        let builder1 = ReturnBuilder<Any, Int>(mock: mock, signature: signature, params: params1)
+
+        let params2 = [ArgumentMatcher.equalTo(4)]
+        let builder2 = ReturnBuilder<Any, Int>(mock: mock, signature: signature, params: params2)
+
+        // Act
+        builder1.then(return: 1)
+        builder2.then(return: 2)
+
+        // Assert
+        let stubGroups = getStubGroups(for: signature)
+        #expect(stubGroups.count == 2)
+
+        // Verify matchers
+        #expect(stubGroups[0].matchers.count == 1)
+        let matcher1 = stubGroups[0].matchers.first as! ArgumentMatcher<Int>
+        guard case .any = matcher1 else {
+            Issue.record("Incorrect matcher")
+            return
+        }
+
+        #expect(stubGroups[1].matchers.count == 1)
+        let matcher2 = stubGroups[1].matchers.first as! ArgumentMatcher<Int>
+        guard case .equalTo(4) = matcher2 else {
+            Issue.record("Incorrect matcher")
+            return
+        }
     }
 
     // MARK: - AsyncReturnBuilder
@@ -165,12 +211,12 @@ struct ReturnBuilderTests {
         }
 
         // Assert
-        let stubs = getCurrentStubs(for: signature) as! [AsyncStub]
+        let stubs = builder.getCurrentStubs()?.producers as! [AsyncProducer]
         #expect(stubs.count == 1)
 
         // Verify producer
         #expect(tracker.value == 0)
-        _ = try await stubs[0].producer(Args([1]))
+        _ = try await stubs[0].callAsFunction([1])
         #expect(tracker.value == 1)
     }
 
@@ -187,12 +233,12 @@ struct ReturnBuilderTests {
         builder.then(throw: TestError.expected)
 
         // Assert
-        let stubs = getCurrentStubs(for: signature) as! [Stub]
+        let stubs = builder.getCurrentStubs()?.producers as! [Producer]
         #expect(stubs.count == 1)
 
         // Verify producer (Void)
         #expect(throws: TestError.self) {
-            try stubs[0].producer(Args([1]))
+            try stubs[0].callAsFunction([1])
         }
     }
 
@@ -209,12 +255,12 @@ struct ReturnBuilderTests {
         }
 
         // Assert
-        let stubs = getCurrentStubs(for: signature) as! [Stub]
+        let stubs = builder.getCurrentStubs()?.producers as! [Producer]
         #expect(stubs.count == 1)
 
         // Verify producer (Void)
         #expect(throws: TestError.self) {
-            try stubs[0].producer(Args([1]))
+            try stubs[0].callAsFunction([1])
         }
     }
 
@@ -237,20 +283,30 @@ struct ReturnBuilderTests {
         }
 
         // Assert
-        let stubs = getCurrentStubs(for: signature) as! [AsyncStub]
+        let stubs = builder.getCurrentStubs()?.producers as! [AsyncProducer]
         #expect(stubs.count == 1)
 
         // Verify producer
         #expect(tracker.value == 0)
         await #expect(throws: TestError.self) {
-            _ = try await stubs[0].producer(Args([1]))
+            _ = try await stubs[0].callAsFunction([1])
         }
         #expect(tracker.value == 1) // tracker is updated BEFORE throwing
     }
 
-    // MARK: - Convenience
+    private func getStubGroups(for signature: String) -> [StubGroup] {
+        mock.metadata.withLock {
+            $0[signature]?.allStubs() ?? []
+        }
+    }
+}
 
-    private func getCurrentStubs(for signature: String) -> [AnyStub] {
-        mock.metadata.withLock({ $0[signature] })?.allStubs() ?? []
+// MARK: - Convenience
+
+private extension ReturnBuilder {
+    func getCurrentStubs() -> StubGroup? {
+        mock.metadata.withLock {
+            $0[self.signature]?.allStubs().first { $0.id == self.stubGroupId }
+        }
     }
 }

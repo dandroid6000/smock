@@ -66,14 +66,12 @@ open class Smock<T>: @unchecked Sendable {
         print("Getting value for: \(staticType)\(Call.description(for: signature, params: paramArray))")
 
         let metadata = metadata.withLock { $0[signature] }
-        let stub: Stub? = metadata?.getNextStub(matching: paramArray)
 
-        guard let stub else {
+        guard let producer: Producer = metadata?.getNextProducer(matching: paramArray) else {
             return relaxedDefault("No matching stubs for \(staticType)\(Call.description(for: signature, params: paramArray))")
         }
 
-        let args = Args(paramArray)
-        guard let value = try stub.producer(args) as? R else {
+        guard let value = try producer(paramArray) as? R else {
             preconditionFailure("Incorrect type stubbed for \(staticType)\(Call.description(for: signature, params: paramArray))")
         }
 
@@ -87,38 +85,44 @@ open class Smock<T>: @unchecked Sendable {
         print("Getting value for: \(staticType)\(Call.description(for: signature, params: paramArray))")
 
         let metadata = metadata.withLock { $0[signature] }
-        let stub: AsyncStub? = metadata?.getNextStub(matching: paramArray)
 
-        guard let stub else {
+        guard let producer: AsyncProducer = metadata?.getNextProducer(matching: paramArray) else {
             return relaxedDefault("No matching stubs for \(staticType)\(Call.description(for: signature, params: paramArray))")
         }
 
-        let args = Args(paramArray)
-        guard let value = try await stub.producer(args) as? R else {
+        guard let value = try await producer(paramArray) as? R else {
             preconditionFailure("Incorrect type stubbed for \(staticType)\(Call.description(for: signature, params: paramArray))")
         }
 
         return value
     }
 
-    // Used by (Throwing)ReturnBuilder classes
+    // Used by ReturnBuilder classes
+    func createStubGroup(for signature: String, matchers: [AnyArgumentMatcher]) -> Int {
+        getOrCreateMetadata(for: signature)
+            .addStubGroup(matchers: matchers)
+    }
+
+    // Used by ReturnBuilder classes
     func stubProducer(
         _ producer: @Sendable @escaping (Args) throws -> (any Sendable),
         for signature: String,
-        params: [AnyArgumentMatcher]
+        stubGroupId: Int
     ) {
+        let producer = Producer(producer)
         getOrCreateMetadata(for: signature)
-            .addStub(Stub(matchers: params, producer: producer))
+            .addStub(groupId: stubGroupId, producer: producer)
     }
 
-    // Used by Async(Throwing)ReturnBuilder classes
+    // Used by ReturnBuilder classes
     func stubAsyncProducer(
         _ producer: @Sendable @escaping (Args) async throws -> (any Sendable),
         for signature: String,
-        params: [AnyArgumentMatcher]
+        stubGroupId: Int
     ) {
+        let producer = AsyncProducer(producer)
         getOrCreateMetadata(for: signature)
-            .addStub(AsyncStub(matchers: params, producer: producer))
+            .addStub(groupId: stubGroupId, producer: producer)
     }
 
     // Used by Verifier classes
