@@ -96,7 +96,8 @@ public class MethodVerifier<T, R>: Verifier<T> {
     /// Asserts that the method was invoked in accordance with the given ``Verification``.
     ///
     ///  - parameters:
-    ///    - returning: The return type of the method. This can be supplied to clarify a generic return type for the compiler.
+    ///    - returning: The return type of the method. This can be supplied to clarify a generic return type or disambiguate overloaded
+    ///                 return types for the compiler.
     ///    - verification: The type of verification to perform.
     @discardableResult
     public func wasCalled(
@@ -123,7 +124,8 @@ public class PropertyVerifier<T, R: Sendable>: Verifier<T> {
     /// Asserts that the property was read in accordance with the given ``Verification``.
     ///
     ///  - parameters:
-    ///    - type: The property type. This can be supplied to clarify a generic type for the compiler.
+    ///    - type: The property type. This can be supplied to clarify a generic return type or disambiguate overloaded return types for the
+    ///            compiler.
     ///    - verification: The type of verification to perform.
     @discardableResult
     public func wasRead(
@@ -211,7 +213,7 @@ public class VerificationResult: CustomStringConvertible {
     }
 }
 
-extension [VerificationResult] {
+private extension [VerificationResult] {
     func sortedCallDescriptions() -> String {
         // De-dup by timestamp
         var timestamps = Set<ContinuousClock.Instant>()

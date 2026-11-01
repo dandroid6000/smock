@@ -51,28 +51,30 @@ public func reset<T>(_ static: Smock<T>.Type) {
 // MARK: - Static wrappers
 
 extension Smock {
+    private static var staticMock: Smock<T> { SmockStatic[T.self] }
+
     /// Indicates whether the static mock will assume reasonable return values (e.g. `Void` or `nil`)  when members are not stubbed.
     public static var relaxed: Bool {
-        get { SmockStatic[T.self].relaxed }
-        set { SmockStatic[T.self].relaxed = newValue }
+        get { staticMock.relaxed }
+        set { staticMock.relaxed = newValue }
     }
 
     /// Tracks a static invocation by its signature and associated parameters (if any).
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public static func trackCall<each P: Sendable>(_ signature: String, params: repeat each P) {
-        SmockStatic[T.self].trackCall(signature, params: repeat each params)
+        staticMock.trackCall(signature, params: repeat each params)
     }
 
     /// Gets the next stubbed value for a member with the given signature which matches the provided parameters.
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public static func getValue<each P, R>(for signature: String, params: repeat each P) throws -> R {
-        try SmockStatic[T.self].getValue(for: signature, params: repeat each params)
+        try staticMock.getValue(for: signature, params: repeat each params)
     }
 
     /// Gets the next stubbed value for a member with the given signature which matches the provided parameters.
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public static func getValue<each P, R>(for signature: String, params: repeat each P) async throws -> R {
-        try await SmockStatic[T.self].getValue(for: signature, params: repeat each params)
+        try await staticMock.getValue(for: signature, params: repeat each params)
     }
 }
 #endif
