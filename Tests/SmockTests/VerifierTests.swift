@@ -84,6 +84,17 @@ class VerifierTests {
     }
 
     @Test
+    func `PropertyVerifier.wasSet(to:_:) verifies explicit writes`() async throws {
+        let verifier = WritablePropertyVerifier<ExampleService, Int>(mock: mock, signature: "test")
+
+        // Set and verify
+        mock.trackCall("test", params: 1)
+        mock.trackCall("test", params: 2)
+        verifier.wasSet(.exactly(2))
+        verifier.wasSet(to: 2, .exactly(1))
+    }
+
+    @Test
     func `verifyNoInteractions asserts no calls were made`() async throws {
         verifyNoInteractions(mock)
         verifyNoInteractions(ExampleServiceMock.self)

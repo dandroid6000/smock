@@ -44,6 +44,8 @@ protocol ExampleService: AnyObject {
     func overloadedParam(param: String)
     func overloadedParam(param: Int)
 
+    func paramAndReturn(param: Int) -> String
+
     func twoArgMethod(
         _ arg1: String,
         _ arg2: Int
