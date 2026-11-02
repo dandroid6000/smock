@@ -9,11 +9,9 @@ import SwiftUI
 
 @main
 struct SmockExampleApp: App {
-    @State private var myService: MyService = MyServiceImpl()
-
     var body: some Scene {
         WindowGroup {
-            ContentView(name: $myService.name)
+            UserListView()
         }
     }
 }

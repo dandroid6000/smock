@@ -7,8 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		84504B902FFAFB0600FD7EA6 /* Smock in Frameworks */ = {isa = PBXBuildFile; productRef = 84504B8F2FFAFB0600FD7EA6 /* Smock */; };
-		849B7F533004345500F02E32 /* SmockTestSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 849B7F523004345500F02E32 /* SmockTestSupport */; };
+		8472D4933099350D00C06785 /* Smock in Frameworks */ = {isa = PBXBuildFile; productRef = 8472D4923099350D00C06785 /* Smock */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,11 +44,6 @@
 			path = SmockExampleTests;
 			sourceTree = "<group>";
 		};
-		84504B6F2FFAF85E00FD7EA6 /* SmockExampleUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SmockExampleUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,7 +51,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84504B902FFAFB0600FD7EA6 /* Smock in Frameworks */,
+				8472D4933099350D00C06785 /* Smock in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,7 +59,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				849B7F533004345500F02E32 /* SmockTestSupport in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -84,7 +77,6 @@
 			children = (
 				84504B572FFAF85D00FD7EA6 /* SmockExample */,
 				84504B652FFAF85E00FD7EA6 /* SmockExampleTests */,
-				84504B6F2FFAF85E00FD7EA6 /* SmockExampleUITests */,
 				849B7F513004345500F02E32 /* Frameworks */,
 				84504B562FFAF85D00FD7EA6 /* Products */,
 			);
@@ -127,7 +119,7 @@
 			);
 			name = SmockExample;
 			packageProductDependencies = (
-				84504B8F2FFAFB0600FD7EA6 /* Smock */,
+				8472D4923099350D00C06785 /* Smock */,
 			);
 			productName = SmockExample;
 			productReference = 84504B552FFAF85D00FD7EA6 /* SmockExample.app */;
@@ -151,7 +143,6 @@
 			);
 			name = SmockExampleTests;
 			packageProductDependencies = (
-				849B7F523004345500F02E32 /* SmockTestSupport */,
 			);
 			productName = SmockExampleTests;
 			productReference = 84504B622FFAF85E00FD7EA6 /* SmockExampleTests.xctest */;
@@ -169,9 +160,6 @@
 			);
 			dependencies = (
 				84504B6E2FFAF85E00FD7EA6 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				84504B6F2FFAF85E00FD7EA6 /* SmockExampleUITests */,
 			);
 			name = SmockExampleUITests;
 			packageProductDependencies = (
@@ -213,7 +201,7 @@
 			mainGroup = 84504B4C2FFAF85D00FD7EA6;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				84504B8E2FFAFB0600FD7EA6 /* XCLocalSwiftPackageReference "../../Smock" */,
+				8472D4913099350000C06785 /* XCLocalSwiftPackageReference "../../Smock" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 84504B562FFAF85D00FD7EA6 /* Products */;
@@ -592,21 +580,17 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		84504B8E2FFAFB0600FD7EA6 /* XCLocalSwiftPackageReference "../../Smock" */ = {
+		8472D4913099350000C06785 /* XCLocalSwiftPackageReference "../../Smock" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../../Smock;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		84504B8F2FFAFB0600FD7EA6 /* Smock */ = {
+		8472D4923099350D00C06785 /* Smock */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 8472D4913099350000C06785 /* XCLocalSwiftPackageReference "../../Smock" */;
 			productName = Smock;
-		};
-		849B7F523004345500F02E32 /* SmockTestSupport */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 84504B8E2FFAFB0600FD7EA6 /* XCLocalSwiftPackageReference "../../Smock" */;
-			productName = SmockTestSupport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
