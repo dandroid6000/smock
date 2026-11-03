@@ -67,8 +67,7 @@ public class Verifier<T> {
         let calls = mock.verifyCalls(for: signature, matching: params)
 
         if !verification.verify(count: calls.count) {
-            let staticType = mock.isStatic ? "\(T.self)" : ""
-            let callDescription = "\(staticType)\(Call.description(for: signature, params: params))"
+            let callDescription = "\(mock.staticType)\(Call.description(for: signature, params: params))"
             reportIssue(
                 "Verification failed: \(callDescription)\n\tExpected: \(verification)\n\tActual: \(calls.count)",
                 filePath: filePath,

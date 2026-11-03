@@ -24,7 +24,7 @@ open class Smock<T>: @unchecked Sendable {
     public var relaxed: Bool
 
     /// Indicates whether this mock represents static members (distinct from instance members).
-    let isStatic: Bool
+    var isStatic: Bool { !staticType.isEmpty }
 
     /// Generic type is needed to generate type-specific `when` methods that instantiate the correct stubber
     let mockedType: T.Type = T.self
@@ -32,20 +32,20 @@ open class Smock<T>: @unchecked Sendable {
     /// Exposed for testing
     internal let metadata = Mutex<[String: MemberMetadata]>([:])
 
-    private var staticType: String { isStatic ? "\(T.self)" : "" }
+    internal let staticType: String
 
     /// Creates a new instance of the mock.
     ///
     /// - parameter relaxed: If `true`, the mock will assume reasonable return values (e.g. `Void` or `nil`)  when members are not stubbed.
     public required init(relaxed: Bool = false) {
         self.relaxed = relaxed
-        self.isStatic = false
+        self.staticType = "" // not static
     }
 
     /// Internal initializer for static instances.
     init(isStatic: Bool) {
         self.relaxed = false
-        self.isStatic = isStatic
+        self.staticType = isStatic ? "\(T.self)" : ""
     }
 
     /// Tracks an invocation by its signature and associated parameters (if any).
@@ -53,7 +53,7 @@ open class Smock<T>: @unchecked Sendable {
     public final func trackCall<each P: Sendable>(_ signature: String, params: repeat each P) {
         var paramArray: [any Sendable] = []
         repeat paramArray.append(each params)
-        print("Tracked: \(staticType)\(Call.description(for: signature, params: paramArray))")
+        smockLogger.debug("[CALL] Observed: \(self.staticType)\(Call.description(for: signature, params: paramArray))")
         let call = Call(params: paramArray)
         getOrCreateMetadata(for: signature)
             .addCall(call)
@@ -63,7 +63,7 @@ open class Smock<T>: @unchecked Sendable {
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public final func getValue<each P, R>(for signature: String, params: repeat each P) throws -> R {
         let paramArray = toParamArray(repeat each params)
-        print("Getting value for: \(staticType)\(Call.description(for: signature, params: paramArray))")
+        smockLogger.debug("[CALL] Getting value for: \(self.staticType)\(Call.description(for: signature, params: paramArray))")
 
         let metadata = metadata.withLock { $0[signature] }
 
@@ -82,7 +82,7 @@ open class Smock<T>: @unchecked Sendable {
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public final func getValue<each P, R>(for signature: String, params: repeat each P) async throws -> R {
         let paramArray = toParamArray(repeat each params)
-        print("Getting value for: \(staticType)\(Call.description(for: signature, params: paramArray))")
+        smockLogger.debug("[CALL] Getting value for: \(self.staticType)\(Call.description(for: signature, params: paramArray))")
 
         let metadata = metadata.withLock { $0[signature] }
 
@@ -128,7 +128,7 @@ open class Smock<T>: @unchecked Sendable {
     // Used by Verifier classes
     func verifyCalls(for signature: String, matching params: [AnyArgumentMatcher]) -> [Call] {
         metadata.withLock { allMetadata in
-            print("Verifying \(staticType)\(Call.description(for: signature, params: params))")
+            smockLogger.debug("[VERIFY] Checking: \(self.staticType)\(Call.description(for: signature, params: params))")
             return allMetadata[signature]?.verifyCalls(matching: params) ?? []
         }
     }

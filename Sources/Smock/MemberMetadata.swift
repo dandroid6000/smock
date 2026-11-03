@@ -46,7 +46,8 @@ final class MemberMetadata: Sendable {
                 // Mutate in place
                 $0[index].addProducer(producer)
             } else {
-                print("⚠️ Unable to find StubGroup with id: \(groupId)")
+                // Note: This should not occur under normal circumstances
+                smockLogger.warning("[STUB] ⚠️ Unable to find StubGroup with id: \(groupId)")
             }
         }
     }
