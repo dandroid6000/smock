@@ -89,30 +89,28 @@ public struct Args {
     }
 
     /// Gets a `Bool` value at the given `index`.
-    public func getBool(at index: Int) throws -> Bool { try self[index] }
+    public func getBool(at index: Int) -> Bool { self[index] }
 
     /// Gets a `Double` value at the given `index`.
-    public func getDouble(at index: Int) throws -> Double { try self[index] }
+    public func getDouble(at index: Int) -> Double { self[index] }
 
     /// Gets a `Float` value at the given `index`.
-    public func getFloat(at index: Int) throws -> Float { try self[index] }
+    public func getFloat(at index: Int) -> Float { self[index] }
 
     /// Gets an `Int` value at the given `index`.
-    public func getInt(at index: Int) throws -> Int { try self[index] }
+    public func getInt(at index: Int) -> Int { self[index] }
 
     /// Gets a `String` value at the given `index`.
-    public func getString(at index: Int) throws -> String { try self[index] }
+    public func getString(at index: Int) -> String { self[index] }
 
     /// Gets the value at the given `index` and casts it to `T`.
-    public func get<T>(at index: Int, as type: T.Type = T.self) throws -> T { try self[index] }
+    public func get<T>(_ type: T.Type = T.self, at index: Int) -> T { self[index] }
 
     /// Gets the value at the given `index` and casts it to `T`.
-    ///
-    /// - throws Error.invalidType if the cast fails.
     public subscript<T>(index: Int) -> T {
-        get throws {
+        get {
             guard let arg = args[index] as? T else {
-                throw Error.invalidType
+                preconditionFailure("Invalid type for argument at index \(index): \(T.self)")
             }
             return arg
         }

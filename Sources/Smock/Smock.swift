@@ -11,11 +11,6 @@ import Mutex
 
 import IssueReporting
 
-enum SmockError: Error {
-    case strict
-    case stubNotFound
-}
-
 /// The base class for all mocks, including internal functionality for stubbing and retrieving values, as well as tracking and verifying member invocations.
 // Note: Class is non-final, so cannot directly conform to Sendable
 // - Applying @unchecked and using Mutex to ensure thread safety
@@ -26,12 +21,10 @@ open class Smock<T>: @unchecked Sendable {
     /// Indicates whether this mock represents static members (distinct from instance members).
     var isStatic: Bool { !staticType.isEmpty }
 
-    /// Generic type is needed to generate type-specific `when` methods that instantiate the correct stubber
-    let mockedType: T.Type = T.self
-
     /// Exposed for testing
     internal let metadata = Mutex<[String: MemberMetadata]>([:])
 
+    /// The generic type name, if static, otherwise an empty string.
     internal let staticType: String
 
     /// Creates a new instance of the mock.
@@ -78,7 +71,7 @@ open class Smock<T>: @unchecked Sendable {
         return value
     }
 
-    /// Gets the next stubbed value for a member with the given signature that matches the provided parameters.
+    /// Gets the next stubbed value for an async member with the given signature that matches the provided parameters.
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public final func getValue<each P, R>(for signature: String, params: repeat each P) async throws -> R {
         let paramArray = toParamArray(repeat each params)

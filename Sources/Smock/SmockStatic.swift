@@ -65,13 +65,13 @@ extension Smock {
         staticMock.trackCall(signature, params: repeat each params)
     }
 
-    /// Gets the next stubbed value for a member with the given signature which matches the provided parameters.
+    /// Gets the next stubbed value for a static member with the given signature which matches the provided parameters.
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public static func getValue<each P, R>(for signature: String, params: repeat each P) throws -> R {
         try staticMock.getValue(for: signature, params: repeat each params)
     }
 
-    /// Gets the next stubbed value for a member with the given signature which matches the provided parameters.
+    /// Gets the next stubbed value for a static async member with the given signature which matches the provided parameters.
     /// - Warning: This method is called by generated code and should not be invoked directly.
     public static func getValue<each P, R>(for signature: String, params: repeat each P) async throws -> R {
         try await staticMock.getValue(for: signature, params: repeat each params)

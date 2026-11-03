@@ -321,21 +321,29 @@ struct SmockIntegrationTests {
         // Arrange
         when(mock).twoArgMethod(.any(), .any()).then { args in
             // Assert
-            #expect(throws: Args.Error.invalidType) {
-                try args[0] as Int // should be String
-            }
-            #expect(throws: Args.Error.invalidType) {
-                try args.getString(at: 1) // should be Int
-            }
-
-            let first: String = try! args[0]
-            let second = try! args.getInt(at: 1)
+            let first: String = args[0]
+            let second = args.getInt(at: 1)
             #expect(first == "not empty")
             #expect(second == 0)
         }
 
         // Act
         mock.twoArgMethod("not empty", 0)
+    }
+
+    @Test
+    func `mock should crash for incorrect argument type`() async throws {
+        await #expect(processExitsWith: .failure) {
+            // Arrange
+            let mock = ExampleServiceMock() // Cannot capture external object
+            when(mock).twoArgMethod(.any(), .any()).then { args in
+                // Assert
+                _ = args[0] as Int // should be String
+            }
+
+            // Act
+            mock.twoArgMethod("not empty", 0)
+        }
     }
 
     // MARK: - Verification

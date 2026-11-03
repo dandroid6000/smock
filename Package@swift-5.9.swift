@@ -19,7 +19,7 @@ let package = Package(
         // Handles Swift Testing and XCTest issue reporting at runtime
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.0.0"),
         // Backport of Synchronization.Mutex from Swift 6+
-        .package(url: "https://github.com/swhitty/swift-mutex.git", .upToNextMajor(from: "0.0.5"))
+        .package(url: "https://github.com/swhitty/swift-mutex.git", from: "0.0.5")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.

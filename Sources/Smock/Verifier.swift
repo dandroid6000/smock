@@ -95,12 +95,25 @@ public class MethodVerifier<T, R>: Verifier<T> {
     /// Asserts that the method was invoked in accordance with the given ``Verification``.
     ///
     ///  - parameters:
-    ///    - returning: The return type of the method. This can be supplied to clarify a generic return type or disambiguate overloaded
+    ///    - verification: The type of verification to perform.
+    @discardableResult
+    public func wasCalled(
+        _ verification: Verification = .atLeast(1),
+        filePath: StaticString = #filePath,
+        line: UInt = #line
+    ) -> VerificationResult {
+        return verify(by: verification, filePath: filePath, line: line)
+    }
+
+    /// Asserts that the method was invoked in accordance with the given ``Verification``.
+    ///
+    ///  - parameters:
+    ///    - type: The return type of the method. This can be supplied to clarify a generic return type or disambiguate overloaded
     ///                 return types for the compiler.
     ///    - verification: The type of verification to perform.
     @discardableResult
     public func wasCalled(
-        returning _: R.Type = R.self,
+        returning type: R.Type,
         _ verification: Verification = .atLeast(1),
         filePath: StaticString = #filePath,
         line: UInt = #line
@@ -123,12 +136,25 @@ public class PropertyVerifier<T, R: Sendable>: Verifier<T> {
     /// Asserts that the property was read in accordance with the given ``Verification``.
     ///
     ///  - parameters:
+    ///    - verification: The type of verification to perform.
+    @discardableResult
+    public func wasRead(
+        _ verification: Verification = .atLeast(1),
+        filePath: StaticString = #filePath,
+        line: UInt = #line
+    ) -> VerificationResult {
+        return verify(by: verification, filePath: filePath, line: line)
+    }
+
+    /// Asserts that the property was read in accordance with the given ``Verification``.
+    ///
+    ///  - parameters:
     ///    - type: The property type. This can be supplied to clarify a generic return type or disambiguate overloaded return types for the
     ///            compiler.
     ///    - verification: The type of verification to perform.
     @discardableResult
     public func wasRead(
-        type _: R.Type = R.self,
+        as type: R.Type,
         _ verification: Verification = .atLeast(1),
         filePath: StaticString = #filePath,
         line: UInt = #line

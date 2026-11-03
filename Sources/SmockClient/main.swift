@@ -1,8 +1,7 @@
 import Smock
-import IssueReporting
 
 enum AnError: Error {
-    case error
+    case anError
 }
 
 /// Wrapper which allows 'sending' mutable state across isolation context
@@ -16,52 +15,69 @@ class NonSendable {
 }
 
 @Mockable
-protocol Foo {
-    static var foo: Int { get }
-    func executeTask(_ task: @Sendable @escaping () throws -> Void) rethrows
-//    static func updateUI() -> Int
+protocol MyService: AnyObject {
+    static var staticProperty: Int { get set }
+    static func staticVoidMethod()
+    static func staticOptionalMethod() -> Int?
+    static func staticReturningMethod() -> Int
+    static func staticAsyncMethod() async
+
+    var readWriteProperty: String { get set }
+    var readOnlyProperty: String { get }
+    var asyncProperty: Int { get async }
+    var throwingProperty: String { get throws }
+    var asyncThrowingProperty: String { get async throws }
+
+    subscript(readOnly: Int) -> String { get }
+    subscript(readWrite: String) -> Int { get set }
+
+    func voidMethod()
+    func returningMethod() -> Int
+    func optionalMethod() -> Int?
+    func throwingMethod() throws
+    func asyncThrowingMethod() async throws
+    func rethrowingMethod(task: @Sendable @escaping () throws -> Void) rethrows
+
+    func inoutMethod(_ mutable: inout Int)
+    func genericMethod<T: Sendable>(param: T)
+    func constrainedMethod<T: Sendable>(param: T) where T: Equatable
+
+    func overloadedReturn()
+    func overloadedReturn() -> String
+    func overloadedReturn() -> Int
+
+    func overloadedParam(param: String)
+    func overloadedParam(param: Int)
+
+    func paramAndReturn(param: Int) -> String
+
+    func twoArgMethod(
+        _ arg1: String,
+        _ arg2: Int
+    )
+
+    func variadic(_ args: Int...)
 }
 
-@Mockable
-protocol Bar {
-    static var minus1: Int { get }
-    static var minus2: Int { get async }
-    static func minus3()
-
-    var zero: Int? { get }
-    var one: Int { get async throws }
-    var two: Int { get set }
-
-    subscript(index: Int) -> String { get set }
-    subscript(key: String, defaultValue value: Int) -> Int { get set }
-
-    func three()
-    func four(a: Int) async throws -> Int
-    func five(_ a: Int, _ b: String)
-}
-
-let mock = FooMock()
+let mock = MyServiceMock()
 
 let box = SendableBox(false)
 
-when(mock).executeTask(.any()).then { args in
-    let closure: @Sendable () throws -> Void = try! args[0]
+when(mock).rethrowingMethod(task: .any()).then { args in
+    // Cannot throw in rethrowing stub (only the closure can)
+    let closure: @Sendable () throws -> Void = args[0]
     do {
         try closure()
     } catch {
+        // Validate errors here
         print("CAUGHT: \(error)")
     }
 }
 
-mock.executeTask {
+mock.rethrowingMethod {
     print("!!! EXECUTING")
-    throw AnError.error
+    throw AnError.anError
 }
 
-verify(mock).executeTask(.any()).wasCalled()
+verify(mock).rethrowingMethod(task: .any()).wasCalled()
 
-//when(mock).updateUI().then(return: 2)
-//
-//_ = mock.updateUI()
-//
-//verify(mock).updateUI().wasCalled()
