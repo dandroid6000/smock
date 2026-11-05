@@ -23,7 +23,7 @@ directives, as it is intended solely for testing purposes.
         * [Verification Modes](#verification-modes)
         * [Method Verification](#method-verification)
         * [Property/Subscript Verification](#propertysubscript-verification)
-        * [Parameter Matching (Verifiers)](#parameter-matching-(verifiers)
+        * [Parameter Matching (Verifiers)](#parameter-matching-verifiers)
         * [Verifying Mock Interactions](#verifying-mock-interactions)
         * [Verifying Call Order](#verifying-call-order)
 * [Acknowledgments](#acknowledgments)
